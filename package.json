@@ -1,0 +1,15 @@
+{
+  "name": "mmm-mycalendar",
+  "version": "1.0.0",
+  "description": "Custom Google Calendar module for MagicMirror",
+  "main": "MMM-MyCalendar.js",
+  "scripts": {
+    "start": "node MMM-MyCalendar.js"
+  },
+  "dependencies": {
+    "node-ical": "^0.16.0",
+    "node-fetch": "^3.3.2"
+  },
+  "author": "YOUR_NAME",
+  "license": "MIT"
+}
