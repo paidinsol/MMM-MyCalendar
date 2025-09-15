@@ -4,7 +4,8 @@ Module.register("MMM-MyCalendar", {
     calendars: [],
     maxEvents: 15,
     showWeather: true,
-    groupByDate: true
+    groupByDate: true,
+    showPastEvents: false
   },
 
   getStyles: function() {
@@ -41,19 +42,20 @@ Module.register("MMM-MyCalendar", {
     tomorrow.setDate(tomorrow.getDate() + 1);
     
     if (eventDate.toDateString() === today.toDateString()) {
-      return "HEUTE";
+      return "TODAY";
     } else if (eventDate.toDateString() === tomorrow.toDateString()) {
-      return "MORGEN";
+      return "TOMORROW";
     } else {
       const options = { weekday: 'long', day: 'numeric', month: 'long' };
-      return eventDate.toLocaleDateString('de-DE', options).toUpperCase();
+      return eventDate.toLocaleDateString('en-US', options).toUpperCase();
     }
   },
 
   formatTime: function(date) {
-    return new Date(date).toLocaleTimeString('de-DE', {
+    return new Date(date).toLocaleTimeString('en-US', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: false
     });
   },
 
@@ -76,15 +78,18 @@ Module.register("MMM-MyCalendar", {
       return 'passed';
     }
     
+    const hour = eventStart.getHours();
+    if (hour >= 6 && hour < 12) {
+      return 'morning';
+    } else if (hour >= 12 && hour < 17) {
+      return 'noon';
+    } else if (hour >= 17 && hour < 22) {
+      return 'evening';
+    }
+    
     const title = event.summary.toLowerCase();
-    if (title.includes('fullday') || title.includes('ganztägig')) {
-      return 'fullday';
-    }
-    if (title.includes('oops') || title.includes('error')) {
-      return 'oops';
-    }
-    if (title.includes('milestone')) {
-      return 'milestone';
+    if (title.includes('overday') || title.includes('all day')) {
+      return 'overday';
     }
     
     return null;
@@ -93,8 +98,8 @@ Module.register("MMM-MyCalendar", {
   getWeatherInfo: function(date) {
     // Mock weather data - in real implementation, this would come from weather API
     const weatherData = {
-      'HEUTE': { temp: '33°', low: '26°', icon: '☀️' },
-      'MORGEN': { temp: '32°', low: '23°', icon: '☁️' },
+      'TODAY': { temp: '33°', low: '26°', icon: '☀️' },
+      'TOMORROW': { temp: '32°', low: '23°', icon: '☁️' },
       'default': { temp: '30°', low: '21°', icon: '🌤️' }
     };
     
@@ -117,6 +122,16 @@ Module.register("MMM-MyCalendar", {
     });
     
     return grouped;
+  },
+
+  filterFutureEvents: function(events) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    
+    return events.filter(event => {
+      const eventDate = new Date(event.start);
+      return eventDate >= today;
+    });
   },
 
   getDom: function () {
@@ -142,9 +157,20 @@ Module.register("MMM-MyCalendar", {
     const eventsContainer = document.createElement("div");
     eventsContainer.className = "events-container";
     
-    const sortedEvents = this.events
+    // Filter events to show only from today onward
+    const futureEvents = this.filterFutureEvents(this.events);
+    
+    const sortedEvents = futureEvents
       .sort((a, b) => new Date(a.start) - new Date(b.start))
       .slice(0, this.config.maxEvents);
+    
+    if (sortedEvents.length === 0) {
+      const noEvents = document.createElement("div");
+      noEvents.className = "no-events";
+      noEvents.textContent = "No upcoming events";
+      wrapper.appendChild(noEvents);
+      return wrapper;
+    }
     
     if (this.config.groupByDate) {
       const groupedEvents = this.groupEventsByDate(sortedEvents);
