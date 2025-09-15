@@ -64,12 +64,15 @@ Module.register("MMM-MyCalendar", {
     const future = new Date();
     future.setDate(future.getDate() + this.config.maximumNumberOfDays);
 
+    // Filter events to show only from today onwards
     let events = this.events.filter(event => {
       const eventDate = new Date(event.start);
+      // For full day events, include if the event date is today or later
       if (event.fullDayEvent) {
         const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
         return eventDay >= today && eventDay <= future;
       }
+      // For timed events, include if the event time is now or later
       return eventDate >= now && eventDate <= future;
     });
 
@@ -82,7 +85,7 @@ Module.register("MMM-MyCalendar", {
     }
 
     const table = document.createElement("table");
-    table.className = "large";
+    table.className = "medium";
 
     events.forEach(event => {
       const eventWrapper = document.createElement("tr");
@@ -93,7 +96,6 @@ Module.register("MMM-MyCalendar", {
       }
 
       const symbolWrapper = document.createElement("td");
-      symbolWrapper.className = "symbol";
       if (this.config.displaySymbol) {
         const symbol = document.createElement("span");
         symbol.className = "fa fa-" + (event.symbol || this.config.defaultSymbol);
@@ -141,6 +143,7 @@ Module.register("MMM-MyCalendar", {
       }
     }
 
+    // For timed events, show relative time
     const diffMs = eventTime - now;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);

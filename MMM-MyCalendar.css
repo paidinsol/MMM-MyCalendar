@@ -1,6 +1,6 @@
 .calendar {
-  line-height: 1.3;
-  font-size: 1.1em; /* Increased base font size */
+  line-height: 1.4;
+  font-size: 1.2em; /* Increased from default */
 }
 
 .calendar .dimmed {
@@ -8,36 +8,29 @@
 }
 
 .calendar table {
-  border-spacing: 15px 8px; /* Increased spacing */
+  border-spacing: 12px 6px; /* Increased spacing */
   border-collapse: separate;
-  width: 100%;
 }
 
 .calendar .symbol {
-  padding-right: 15px;
-  width: 30px;
-  text-align: center;
+  padding-right: 12px;
 }
 
 .calendar .title {
-  padding-left: 8px;
-  padding-right: 15px;
+  padding-left: 6px;
+  padding-right: 12px;
   color: white;
-  font-weight: 500;
-  min-width: 200px; /* Ensure title has enough space */
 }
 
 .calendar .time {
-  padding-left: 15px;
+  padding-left: 12px;
   color: #999;
-  font-size: 0.9em;
-  white-space: nowrap;
-  text-align: right;
+  font-size: 0.85em;
 }
 
-.calendar .large {
-  font-size: 1em; /* Larger than small */
-  line-height: 1.4;
+.calendar .medium {
+  font-size: 1em; /* Medium size between small and large */
+  line-height: 1.5;
 }
 
 .calendar .normal {
@@ -53,61 +46,15 @@
 }
 
 .calendar .fa {
-  font-size: 1em; /* Increased icon size */
-  line-height: 1.5;
-  color: #4fc3f7;
+  font-size: 1em; /* Slightly larger icons */
+  line-height: 1.6;
 }
 
 .calendar tr {
-  vertical-align: middle;
-  height: 35px; /* Increased row height */
+  vertical-align: top;
+  height: 32px; /* Increased row height */
 }
 
 .calendar td {
-  padding: 5px 0; /* Increased padding */
-}
-
-/* Hover effect for better interactivity */
-.calendar tr:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 5px;
-}
-
-/* Today's events highlighting */
-.calendar tr.today {
-  background-color: rgba(255, 193, 7, 0.1);
-  border-left: 3px solid #ffc107;
-  padding-left: 10px;
-}
-
-/* Different event type colors */
-.calendar .fa-calendar {
-  color: #4fc3f7;
-}
-
-.calendar .fa-birthday-cake {
-  color: #ff7043;
-}
-
-.calendar .fa-briefcase {
-  color: #66bb6a;
-}
-
-.calendar .fa-plane {
-  color: #ab47bc;
-}
-
-/* Responsive adjustments */
-@media (max-width: 600px) {
-  .calendar {
-    font-size: 1em;
-  }
-  
-  .calendar table {
-    border-spacing: 10px 6px;
-  }
-  
-  .calendar .title {
-    min-width: 150px;
-  }
+  padding: 4px 0; /* Increased padding */
 }
