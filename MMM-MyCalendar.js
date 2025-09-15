@@ -1,14 +1,7 @@
 Module.register("MMM-MyCalendar", {
   defaults: {
     updateInterval: 15 * 60 * 1000,
-    calendars: [],
-    maxEvents: 15,
-    showWeather: true,
-    groupByDate: true
-  },
-
-  getStyles: function() {
-    return ["MMM-MyCalendar.css"];
+    calendars: []
   },
 
   start: function () {
@@ -34,212 +27,21 @@ Module.register("MMM-MyCalendar", {
     }
   },
 
-  formatDate: function(date) {
-    const today = new Date();
-    const eventDate = new Date(date);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    if (eventDate.toDateString() === today.toDateString()) {
-      return "HEUTE";
-    } else if (eventDate.toDateString() === tomorrow.toDateString()) {
-      return "MORGEN";
-    } else {
-      const options = { weekday: 'long', day: 'numeric', month: 'long' };
-      return eventDate.toLocaleDateString('de-DE', options).toUpperCase();
-    }
-  },
-
-  formatTime: function(date) {
-    return new Date(date).toLocaleTimeString('de-DE', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  },
-
-  getEventType: function(summary) {
-    const title = summary.toLowerCase();
-    if (title.includes('meeting') || title.includes('call') || title.includes('business')) return 'meeting';
-    if (title.includes('appointment') || title.includes('doctor')) return 'appointment';
-    if (title.includes('reminder') || title.includes('task')) return 'reminder';
-    if (title.includes('holiday') || title.includes('vacation') || title.includes('fullday')) return 'holiday';
-    if (title.includes('project') || title.includes('milestone')) return 'project';
-    return 'default';
-  },
-
-  getEventStatus: function(event) {
-    const now = new Date();
-    const eventStart = new Date(event.start);
-    const eventEnd = event.end ? new Date(event.end) : null;
-    
-    if (eventEnd && now > eventEnd) {
-      return 'passed';
-    }
-    
-    const title = event.summary.toLowerCase();
-    if (title.includes('fullday') || title.includes('ganztägig')) {
-      return 'fullday';
-    }
-    if (title.includes('oops') || title.includes('error')) {
-      return 'oops';
-    }
-    if (title.includes('milestone')) {
-      return 'milestone';
-    }
-    
-    return null;
-  },
-
-  getWeatherInfo: function(date) {
-    // Mock weather data - in real implementation, this would come from weather API
-    const weatherData = {
-      'HEUTE': { temp: '33°', low: '26°', icon: '☀️' },
-      'MORGEN': { temp: '32°', low: '23°', icon: '☁️' },
-      'default': { temp: '30°', low: '21°', icon: '🌤️' }
-    };
-    
-    const dateKey = this.formatDate(date);
-    return weatherData[dateKey] || weatherData['default'];
-  },
-
-  groupEventsByDate: function(events) {
-    const grouped = {};
-    events.forEach(event => {
-      const dateKey = new Date(event.start).toDateString();
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = [];
-      }
-      grouped[dateKey].push(event);
-    });
-    
-    Object.keys(grouped).forEach(date => {
-      grouped[date].sort((a, b) => new Date(a.start) - new Date(b.start));
-    });
-    
-    return grouped;
-  },
-
   getDom: function () {
     const wrapper = document.createElement("div");
-    wrapper.className = "MMM-MyCalendar";
-    
-    const header = document.createElement("div");
-    header.className = "calendar-header";
-    const title = document.createElement("h2");
-    title.className = "calendar-title";
-    title.textContent = "MY AGENDA";
-    header.appendChild(title);
-    wrapper.appendChild(header);
-    
     if (!this.events || this.events.length === 0) {
-      const noEvents = document.createElement("div");
-      noEvents.className = "no-events";
-      noEvents.textContent = "No upcoming events";
-      wrapper.appendChild(noEvents);
+      wrapper.innerHTML = "No events found.";
       return wrapper;
     }
 
-    const eventsContainer = document.createElement("div");
-    eventsContainer.className = "events-container";
-    
-    const sortedEvents = this.events
-      .sort((a, b) => new Date(a.start) - new Date(b.start))
-      .slice(0, this.config.maxEvents);
-    
-    if (this.config.groupByDate) {
-      const groupedEvents = this.groupEventsByDate(sortedEvents);
-      const today = new Date().toDateString();
-      
-      Object.keys(groupedEvents)
-        .sort((a, b) => new Date(a) - new Date(b))
-        .forEach(dateKey => {
-          const dateGroup = document.createElement("div");
-          dateGroup.className = "date-group";
-          if (dateKey === today) {
-            dateGroup.classList.add("today");
-          }
-          
-          const dateHeader = document.createElement("div");
-          dateHeader.className = "date-header";
-          
-          const dateText = document.createElement("span");
-          dateText.className = "date-text";
-          dateText.textContent = this.formatDate(new Date(dateKey));
-          dateHeader.appendChild(dateText);
-          
-          if (this.config.showWeather) {
-            const weather = this.getWeatherInfo(new Date(dateKey));
-            const weatherInfo = document.createElement("div");
-            weatherInfo.className = "weather-info";
-            
-            const tempSpan = document.createElement("span");
-            tempSpan.className = "weather-temp";
-            tempSpan.textContent = `${weather.temp} ${weather.low}`;
-            
-            const iconSpan = document.createElement("span");
-            iconSpan.className = "weather-icon";
-            iconSpan.textContent = weather.icon;
-            
-            weatherInfo.appendChild(tempSpan);
-            weatherInfo.appendChild(iconSpan);
-            dateHeader.appendChild(weatherInfo);
-          }
-          
-          dateGroup.appendChild(dateHeader);
-          
-          groupedEvents[dateKey].forEach(event => {
-            const eventItem = this.createEventElement(event);
-            dateGroup.appendChild(eventItem);
-          });
-          
-          eventsContainer.appendChild(dateGroup);
-        });
-    } else {
-      sortedEvents.forEach(event => {
-        const eventItem = this.createEventElement(event);
-        eventsContainer.appendChild(eventItem);
-      });
-    }
-    
-    wrapper.appendChild(eventsContainer);
+    const ul = document.createElement("ul");
+    this.events.forEach(event => {
+      const li = document.createElement("li");
+      li.innerHTML = `<strong>${event.summary}</strong> — ${new Date(event.start).toLocaleString()}`;
+      ul.appendChild(li);
+    });
+    wrapper.appendChild(ul);
+
     return wrapper;
-  },
-  
-  createEventElement: function(event) {
-    const eventItem = document.createElement("div");
-    eventItem.className = `event-item ${this.getEventType(event.summary)}`;
-    
-    const indicator = document.createElement("div");
-    indicator.className = "event-indicator";
-    eventItem.appendChild(indicator);
-    
-    const content = document.createElement("div");
-    content.className = "event-content";
-    
-    const details = document.createElement("div");
-    details.className = "event-details";
-    
-    const eventTime = document.createElement("div");
-    eventTime.className = "event-time";
-    eventTime.textContent = this.formatTime(event.start);
-    details.appendChild(eventTime);
-    
-    const eventTitle = document.createElement("div");
-    eventTitle.className = "event-title";
-    eventTitle.textContent = event.summary;
-    details.appendChild(eventTitle);
-    
-    content.appendChild(details);
-    
-    const status = this.getEventStatus(event);
-    if (status) {
-      const statusSpan = document.createElement("span");
-      statusSpan.className = `event-status ${status}`;
-      statusSpan.textContent = status;
-      content.appendChild(statusSpan);
-    }
-    
-    eventItem.appendChild(content);
-    return eventItem;
   }
 });
