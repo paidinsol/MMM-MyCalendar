@@ -2,10 +2,22 @@ Module.register("MMM-MyCalendar", {
   defaults: {
     updateInterval: 15 * 60 * 1000,
     calendars: [],
-    maxEvents: 50,
-    groupByDate: true,
-    truncateLength: 50,
-    daysToShow: 7 // Show events for the next 7 days
+    maximumEntries: 10,
+    maximumNumberOfDays: 365,
+    displaySymbol: true,
+    defaultSymbol: "calendar",
+    showLocation: false,
+    displayRepeatingCountTitle: false,
+    dateFormat: "MMM Do",
+    fullDayEventDateFormat: "MMM Do",
+    timeFormat: "relative",
+    getRelative: 6,
+    urgency: 7,
+    broadcastEvents: true,
+    hidePrivate: false,
+    hideOngoing: false,
+    colored: false,
+    coloredSymbolOnly: false
   },
 
   getStyles: function() {
@@ -13,7 +25,7 @@ Module.register("MMM-MyCalendar", {
   },
 
   start: function () {
-    Log.info("Starting MMM-MyCalendar");
+    Log.info("Starting module: " + this.name);
     this.events = [];
     this.getData();
     this.scheduleUpdate();
@@ -26,270 +38,130 @@ Module.register("MMM-MyCalendar", {
   },
 
   getData: function () {
-    Log.info("Requesting calendar data");
     this.sendSocketNotification("FETCH_EVENTS", this.config.calendars);
   },
 
   socketNotificationReceived: function (notification, payload) {
     if (notification === "EVENTS_RESULT") {
-      Log.info("Received", payload.length, "events");
       this.events = payload;
       this.updateDom();
     }
   },
 
-  filterEventsForWeek: function(events) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-    
-    const endDate = new Date(today);
-    endDate.setDate(today.getDate() + this.config.daysToShow); // 7 days from today
-    
-    const filtered = events.filter(event => {
-      const eventDate = new Date(event.start);
-      eventDate.setHours(0, 0, 0, 0);
-      return eventDate >= today && eventDate < endDate;
-    });
-    
-    Log.info(`Filtered ${events.length} events to ${filtered.length} for the next ${this.config.daysToShow} days`);
-    return filtered;
-  },
+  getDom: function () {
+    const wrapper = document.createElement("div");
+    wrapper.className = "calendar";
 
-  formatDate: function(date) {
-    const today = new Date();
-    const eventDate = new Date(date);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    if (eventDate.toDateString() === today.toDateString()) {
-      return "TODAY";
-    } else if (eventDate.toDateString() === tomorrow.toDateString()) {
-      return "TOMORROW";
-    } else {
-      const options = { weekday: 'long', day: 'numeric', month: 'short' };
-      return eventDate.toLocaleDateString('en-US', options).toUpperCase();
+    if (!this.events || this.events.length === 0) {
+      wrapper.innerHTML = "Loading...";
+      wrapper.className = "calendar dimmed";
+      return wrapper;
     }
-  },
 
-  formatTime: function(date) {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  },
-
-  getEventType: function(summary) {
-    const title = summary.toLowerCase();
-    if (title.includes('meeting') || title.includes('call') || title.includes('business')) return 'meeting';
-    if (title.includes('appointment') || title.includes('doctor')) return 'appointment';
-    if (title.includes('reminder') || title.includes('task')) return 'reminder';
-    if (title.includes('holiday') || title.includes('vacation') || title.includes('fullday')) return 'holiday';
-    if (title.includes('project') || title.includes('milestone')) return 'project';
-    return 'default';
-  },
-
-  getEventStatus: function(event) {
     const now = new Date();
-    const eventStart = new Date(event.start);
-    const eventEnd = event.end ? new Date(event.end) : null;
-    
-    if (eventEnd && now > eventEnd) {
-      return 'passed';
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const future = new Date();
+    future.setDate(future.getDate() + this.config.maximumNumberOfDays);
+
+    let events = this.events.filter(event => {
+      const eventDate = new Date(event.start);
+      return eventDate >= today && eventDate <= future;
+    });
+
+    events = events.slice(0, this.config.maximumEntries);
+
+    if (events.length === 0) {
+      wrapper.innerHTML = "No upcoming events.";
+      wrapper.className = "calendar dimmed";
+      return wrapper;
     }
+
+    const table = document.createElement("table");
+    table.className = "small";
+
+    events.forEach(event => {
+      const eventWrapper = document.createElement("tr");
+      eventWrapper.className = "normal";
+
+      if (this.config.colored) {
+        eventWrapper.style.cssText = "color:" + event.color;
+      }
+
+      const symbolWrapper = document.createElement("td");
+      if (this.config.displaySymbol) {
+        const symbol = document.createElement("span");
+        symbol.className = "fa fa-" + (event.symbol || this.config.defaultSymbol);
+        if (this.config.colored && this.config.coloredSymbolOnly) {
+          symbol.style.cssText = "color:" + event.color;
+        }
+        symbolWrapper.appendChild(symbol);
+      }
+      eventWrapper.appendChild(symbolWrapper);
+
+      const titleWrapper = document.createElement("td");
+      titleWrapper.innerHTML = event.summary;
+      titleWrapper.className = "title bright";
+      eventWrapper.appendChild(titleWrapper);
+
+      const timeWrapper = document.createElement("td");
+      timeWrapper.innerHTML = this.capFirst(this.titleTransform(event.summary, event));
+      timeWrapper.className = "time light";
+      eventWrapper.appendChild(timeWrapper);
+
+      table.appendChild(eventWrapper);
+    });
+
+    wrapper.appendChild(table);
+    return wrapper;
+  },
+
+  titleTransform: function (title, event) {
+    const now = moment();
+    const eventTime = moment(event.start);
     
-    const hour = eventStart.getHours();
-    if (hour >= 6 && hour < 12) {
-      return 'morning';
-    } else if (hour >= 12 && hour < 17) {
-      return 'noon';
-    } else if (hour >= 17 && hour < 22) {
-      return 'evening';
+    if (event.fullDayEvent) {
+      if (eventTime.isSame(now, "day")) {
+        return "Today";
+      } else if (eventTime.isSame(moment().add(1, "day"), "day")) {
+        return "Tomorrow";
+      } else if (eventTime.isSame(now, "week")) {
+        return eventTime.format("dddd");
+      } else {
+        return eventTime.format(this.config.fullDayEventDateFormat);
+      }
     }
-    
-    return null;
+
+    if (this.config.timeFormat === "relative") {
+      return eventTime.fromNow();
+    } else {
+      return eventTime.format(this.config.timeFormat);
+    }
+  },
+
+  capFirst: function (string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
   },
 
   isFullDayEvent: function(event) {
-    if (!event.end) return false;
-    const start = new Date(event.start);
-    const end = new Date(event.end);
-    const duration = end - start;
-    return duration >= 24 * 60 * 60 * 1000;
-  },
-
-  groupEventsByDate: function(events) {
-    const grouped = {};
-    events.forEach(event => {
-      const dateKey = new Date(event.start).toDateString();
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = [];
-      }
-      grouped[dateKey].push(event);
-    });
-    
-    Object.keys(grouped).forEach(date => {
-      grouped[date].sort((a, b) => {
-        const aFullDay = this.isFullDayEvent(a);
-        const bFullDay = this.isFullDayEvent(b);
-        if (aFullDay && !bFullDay) return -1;
-        if (!aFullDay && bFullDay) return 1;
-        return new Date(a.start) - new Date(b.start);
-      });
-    });
-    
-    return grouped;
-  },
-
-  getDom: function () {
-    const wrapper = document.createElement("div");
-    wrapper.className = "CX3A MMM-MyCalendar";
-    
-    Log.info("Creating DOM with", this.events.length, "total events");
-    
-    if (!this.events || this.events.length === 0) {
-      const noEvents = document.createElement("div");
-      noEvents.className = "noEvents";
-      noEvents.innerHTML = `
-        <div>No events found</div>
-        <div style='font-size: 0.8em; margin-top: 10px; opacity: 0.7;'>
-          Check browser console (F12) for error messages
-        </div>
-      `;
-      wrapper.appendChild(noEvents);
-      return wrapper;
+    if (event.start.length === 8 || event.start.indexOf("T") === -1) {
+      return true;
     }
 
-    // Filter events for the next week starting from today
-    const weekEvents = this.filterEventsForWeek(this.events);
-    
-    if (weekEvents.length === 0) {
-      const noEvents = document.createElement("div");
-      noEvents.className = "noEvents";
-      noEvents.innerHTML = `
-        <div>No events in the next ${this.config.daysToShow} days</div>
-        <div style='font-size: 0.8em; margin-top: 10px; opacity: 0.7;'>
-          Found ${this.events.length} total events, but none in the current week.
-        </div>
-      `;
-      wrapper.appendChild(noEvents);
-      return wrapper;
+    const start = moment(event.start);
+    const end = moment(event.end);
+
+    if (end.diff(start, "hours") < 8 && end.diff(start, "days") < 1) {
+      return false;
     }
 
-    const sortedEvents = weekEvents
-      .sort((a, b) => new Date(a.start) - new Date(b.start))
-      .slice(0, this.config.maxEvents);
-    
-    Log.info("Displaying", sortedEvents.length, "events for the next week");
-    
-    if (this.config.groupByDate) {
-      const groupedEvents = this.groupEventsByDate(sortedEvents);
-      const today = new Date().toDateString();
-      
-      Object.keys(groupedEvents)
-        .sort((a, b) => new Date(a) - new Date(b))
-        .forEach(dateKey => {
-          const dateGroup = document.createElement("div");
-          dateGroup.className = "cell";
-          if (dateKey === today) {
-            dateGroup.classList.add("today");
-          }
-          
-          const dateHeader = document.createElement("div");
-          dateHeader.className = "cellHeader";
-          
-          const dateText = document.createElement("span");
-          dateText.className = "cellDate";
-          dateText.textContent = this.formatDate(new Date(dateKey));
-          dateHeader.appendChild(dateText);
-          
-          dateGroup.appendChild(dateHeader);
-          
-          const cellBody = document.createElement("div");
-          cellBody.className = "cellBody";
-          
-          const fullDayEvents = groupedEvents[dateKey].filter(event => this.isFullDayEvent(event));
-          const timedEvents = groupedEvents[dateKey].filter(event => !this.isFullDayEvent(event));
-          
-          if (fullDayEvents.length > 0) {
-            const fullDayContainer = document.createElement("div");
-            fullDayContainer.className = "fullday";
-            
-            fullDayEvents.forEach(event => {
-              const eventElement = this.createEventElement(event, true);
-              fullDayContainer.appendChild(eventElement);
-            });
-            
-            cellBody.appendChild(fullDayContainer);
-          }
-          
-          if (timedEvents.length > 0) {
-            const timedContainer = document.createElement("div");
-            timedContainer.className = "timed";
-            
-            timedEvents.forEach(event => {
-              const eventElement = this.createEventElement(event, false);
-              timedContainer.appendChild(eventElement);
-            });
-            
-            cellBody.appendChild(timedContainer);
-          }
-          
-          dateGroup.appendChild(cellBody);
-          wrapper.appendChild(dateGroup);
-        });
+    if (start.hours() !== 0 || start.minutes() !== 0 || start.seconds() !== 0) {
+      return false;
     }
-    
-    return wrapper;
-  },
-  
-  createEventElement: function(event, isFullDay = false) {
-    const eventItem = document.createElement("div");
-    eventItem.className = `event ${this.getEventType(event.summary)}`;
-    
-    const headline = document.createElement("div");
-    headline.className = "headline";
-    
-    // Add time for timed events
-    if (!isFullDay) {
-      const eventTime = document.createElement("div");
-      eventTime.className = "time";
-      eventTime.textContent = this.formatTime(event.start);
-      headline.appendChild(eventTime);
+
+    if (end.hours() !== 0 || end.minutes() !== 0 || end.seconds() !== 0) {
+      return false;
     }
-    
-    // Add event title - this is the main content!
-    const eventTitle = document.createElement("div");
-    eventTitle.className = "title";
-    
-    // Make sure we have a title to display
-    const titleText = event.summary || event.title || "Untitled Event";
-    eventTitle.textContent = titleText;
-    eventTitle.title = titleText; // Tooltip for full text
-    
-    // Debug logging to see what we're getting
-    Log.info("Event title:", titleText, "Full event:", event);
-    
-    headline.appendChild(eventTitle);
-    eventItem.appendChild(headline);
-    
-    // Add status badge for timed events
-    const status = this.getEventStatus(event);
-    if (status && !isFullDay) {
-      const statusSpan = document.createElement("span");
-      statusSpan.className = `status ${status}`;
-      statusSpan.textContent = status;
-      eventItem.appendChild(statusSpan);
-    }
-    
-    // Add description if available
-    if (event.description && event.description.trim()) {
-      const description = document.createElement("div");
-      description.className = "description";
-      description.textContent = event.description.substring(0, 100) + (event.description.length > 100 ? '...' : '');
-      eventItem.appendChild(description);
-    }
-    
-    return eventItem;
+
+    return true;
   }
 });

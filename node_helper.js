@@ -6,26 +6,43 @@ module.exports = NodeHelper.create({
   socketNotificationReceived: async function (notification, payload) {
     if (notification === "FETCH_EVENTS") {
       let events = [];
+      
       for (const cal of payload) {
         try {
           const response = await fetch(cal.url);
           const data = await response.text();
           const parsed = ical.parseICS(data);
+          
           for (let k in parsed) {
             const ev = parsed[k];
             if (ev.type === "VEVENT") {
-              events.push({
+              const event = {
                 summary: ev.summary,
                 start: ev.start,
-                end: ev.end
-              });
+                end: ev.end,
+                description: ev.description || "",
+                location: ev.location || "",
+                color: cal.color || "#ffffff",
+                symbol: cal.symbol || "calendar",
+                fullDayEvent: this.isFullDayEvent(ev)
+              };
+              events.push(event);
             }
           }
         } catch (err) {
           console.error("Error fetching calendar:", err);
         }
       }
+      
       this.sendSocketNotification("EVENTS_RESULT", events);
     }
+  },
+
+  isFullDayEvent: function(event) {
+    if (!event.end) return false;
+    const start = new Date(event.start);
+    const end = new Date(event.end);
+    const duration = end - start;
+    return duration >= 24 * 60 * 60 * 1000;
   }
 });
