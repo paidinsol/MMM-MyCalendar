@@ -2,7 +2,7 @@ Module.register("MMM-MyCalendar", {
   defaults: {
     updateInterval: 15 * 60 * 1000,
     calendars: [],
-    maximumEntries: 25,
+    maximumEntries: 50, // Increased to show more events
     maximumNumberOfDays: 7,
     displaySymbol: true,
     defaultSymbol: "calendar",
@@ -74,6 +74,9 @@ Module.register("MMM-MyCalendar", {
       if (this.lastUpdate) {
         debugText += ` | Last update: ${this.lastUpdate.toLocaleTimeString()}`;
       }
+      if (this.events.length > 0) {
+        debugText += ` | Total events: ${this.events.length}`;
+      }
       if (this.errors.length > 0) {
         debugText += ` | Errors: ${this.errors.length}`;
       }
@@ -111,20 +114,27 @@ Module.register("MMM-MyCalendar", {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Extend the week range to be more inclusive
     const weekEnd = new Date(today);
-    weekEnd.setDate(today.getDate() + 7);
+    weekEnd.setDate(today.getDate() + 14); // Show 2 weeks instead of 1
     weekEnd.setHours(23, 59, 59, 999);
 
-    // Filter events for the week
+    // More inclusive filtering - show more events
     let events = this.events.filter(event => {
       const eventDate = new Date(event.start);
       
+      // For full day events, be more inclusive
       if (event.fullDayEvent || this.isFullDayEvent(event)) {
         const eventDay = new Date(eventDate);
         eventDay.setHours(0, 0, 0, 0);
-        return eventDay >= today && eventDay <= weekEnd;
+        // Include events from yesterday to 2 weeks ahead
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        return eventDay >= yesterday && eventDay <= weekEnd;
       } else {
-        return eventDate >= now && eventDate <= weekEnd;
+        // For timed events, include from 6 hours ago to 2 weeks ahead
+        const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        return eventDate >= sixHoursAgo && eventDate <= weekEnd;
       }
     });
 
@@ -135,11 +145,21 @@ Module.register("MMM-MyCalendar", {
       return dateA - dateB;
     });
 
+    // Show more events
     events = events.slice(0, this.config.maximumEntries);
+
+    // Add debug info about filtering
+    if (this.config.showDebugInfo && this.events.length > 0) {
+      const filterDebug = document.createElement("div");
+      filterDebug.className = "filter-debug";
+      filterDebug.style.cssText = "font-size: 0.6em; color: #888; margin-bottom: 8px;";
+      filterDebug.innerHTML = `Showing ${events.length} of ${this.events.length} total events`;
+      wrapper.appendChild(filterDebug);
+    }
 
     if (events.length === 0) {
       const noWeekEvents = document.createElement("div");
-      noWeekEvents.innerHTML = `No events this week (${this.events.length} total events found)`;
+      noWeekEvents.innerHTML = `No events in date range (${this.events.length} total events found)`;
       noWeekEvents.className = "calendar dimmed";
       wrapper.appendChild(noWeekEvents);
       return wrapper;
@@ -193,6 +213,8 @@ Module.register("MMM-MyCalendar", {
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
       const eventDay = new Date(eventTime);
       eventDay.setHours(0, 0, 0, 0);
       
@@ -200,16 +222,27 @@ Module.register("MMM-MyCalendar", {
         return "Today";
       } else if (eventDay.getTime() === tomorrow.getTime()) {
         return "Tomorrow";
+      } else if (eventDay.getTime() === yesterday.getTime()) {
+        return "Yesterday";
       } else {
-        const options = { weekday: 'long' };
+        const options = { weekday: 'long', month: 'short', day: 'numeric' };
         return eventTime.toLocaleDateString('en-US', options);
       }
     }
 
     const diffMs = eventTime - now;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
     
-    if (diffHours < 1) {
+    if (diffMs < 0) {
+      // Past events
+      const pastHours = Math.abs(diffHours);
+      if (pastHours < 24) {
+        return `${pastHours} hours ago`;
+      } else {
+        return "Yesterday";
+      }
+    } else if (diffHours < 1) {
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
       if (diffMinutes < 1) {
         return "Now";
@@ -217,20 +250,12 @@ Module.register("MMM-MyCalendar", {
       return `in ${diffMinutes} min`;
     } else if (diffHours < 24) {
       return `in ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+    } else if (diffDays < 7) {
+      const options = { weekday: 'long' };
+      return eventTime.toLocaleDateString('en-US', options);
     } else {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const eventDay = new Date(eventTime);
-      eventDay.setHours(0, 0, 0, 0);
-      
-      if (eventDay.getTime() === tomorrow.getTime()) {
-        return "Tomorrow";
-      } else {
-        const options = { weekday: 'long' };
-        return eventTime.toLocaleDateString('en-US', options);
-      }
+      const options = { month: 'short', day: 'numeric' };
+      return eventTime.toLocaleDateString('en-US', options);
     }
   },
 
