@@ -2,8 +2,8 @@ Module.register("MMM-MyCalendar", {
   defaults: {
     updateInterval: 15 * 60 * 1000,
     calendars: [],
-    maximumEntries: 15,
-    maximumNumberOfDays: 7, // Only show 7 days
+    maximumEntries: 25, // Increased to show more events for the week
+    maximumNumberOfDays: 7,
     displaySymbol: true,
     defaultSymbol: "calendar",
     showLocation: false,
@@ -74,21 +74,23 @@ Module.register("MMM-MyCalendar", {
     today.setHours(0, 0, 0, 0);
     
     const weekEnd = new Date(today);
-    weekEnd.setDate(today.getDate() + 7); // Exactly 7 days from today
+    weekEnd.setDate(today.getDate() + 7);
+    weekEnd.setHours(23, 59, 59, 999); // End of the 7th day
 
-    // Filter events: only show events from now until 7 days from today
+    // Filter events: show events from now until end of the week (7 days)
     let events = this.events.filter(event => {
       const eventDate = new Date(event.start);
       
-      // For timed events, must be in the future
-      if (!event.fullDayEvent && !this.isFullDayEvent(event)) {
-        return eventDate >= now && eventDate < weekEnd;
+      // For all events, check if they fall within the week range
+      if (event.fullDayEvent || this.isFullDayEvent(event)) {
+        // For full day events, include if the date is today or within the week
+        const eventDay = new Date(eventDate);
+        eventDay.setHours(0, 0, 0, 0);
+        return eventDay >= today && eventDay <= weekEnd;
+      } else {
+        // For timed events, include if they're in the future within the week
+        return eventDate >= now && eventDate <= weekEnd;
       }
-      
-      // For full day events, include if the date is today or within the week
-      const eventDay = new Date(eventDate);
-      eventDay.setHours(0, 0, 0, 0);
-      return eventDay >= today && eventDay < weekEnd;
     });
 
     // Sort events chronologically
@@ -101,9 +103,10 @@ Module.register("MMM-MyCalendar", {
     // Limit to maximum entries
     events = events.slice(0, this.config.maximumEntries);
 
-    console.log("Filtered events for this week:", events.map(e => ({
+    console.log("Week events:", events.map(e => ({
       title: e.summary,
-      date: new Date(e.start).toISOString()
+      date: new Date(e.start).toLocaleDateString(),
+      time: new Date(e.start).toLocaleTimeString()
     })));
 
     if (events.length === 0) {
@@ -175,27 +178,34 @@ Module.register("MMM-MyCalendar", {
       }
     }
 
-    // For timed events, show relative time
+    // For timed events, show relative time or day
     const diffMs = eventTime - now;
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
     
-    if (diffMinutes < 60) {
+    if (diffHours < 1) {
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
       if (diffMinutes < 1) {
         return "Now";
       }
       return `in ${diffMinutes} min`;
     } else if (diffHours < 24) {
       return `in ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
-    } else if (diffDays < 7) {
-      // Show day of week for events this week
-      const options = { weekday: 'long' };
-      return eventTime.toLocaleDateString('en-US', options);
     } else {
-      // This shouldn't happen since we filter to 7 days
-      const options = { month: 'short', day: 'numeric' };
-      return eventTime.toLocaleDateString('en-US', options);
+      // For events more than 24 hours away, show the day of the week
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const eventDay = new Date(eventTime);
+      eventDay.setHours(0, 0, 0, 0);
+      
+      if (eventDay.getTime() === tomorrow.getTime()) {
+        return "Tomorrow";
+      } else {
+        const options = { weekday: 'long' };
+        return eventTime.toLocaleDateString('en-US', options);
+      }
     }
   },
 
