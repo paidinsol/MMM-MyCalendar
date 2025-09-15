@@ -2,10 +2,12 @@ Module.register("MMM-MyCalendar", {
   defaults: {
     updateInterval: 15 * 60 * 1000,
     calendars: [],
-    maxEvents: 15,
+    maxEvents: 20,
     showWeather: true,
     groupByDate: true,
-    showPastEvents: false
+    showPastEvents: false,
+    compactMode: true,
+    truncateLength: 35
   },
 
   getStyles: function() {
@@ -46,7 +48,7 @@ Module.register("MMM-MyCalendar", {
     } else if (eventDate.toDateString() === tomorrow.toDateString()) {
       return "TOMORROW";
     } else {
-      const options = { weekday: 'long', day: 'numeric', month: 'long' };
+      const options = { weekday: 'short', day: 'numeric', month: 'short' };
       return eventDate.toLocaleDateString('en-US', options).toUpperCase();
     }
   },
@@ -57,6 +59,13 @@ Module.register("MMM-MyCalendar", {
       minute: '2-digit',
       hour12: false
     });
+  },
+
+  truncateText: function(text, maxLength) {
+    if (!this.config.compactMode || text.length <= maxLength) {
+      return text;
+    }
+    return text.substring(0, maxLength - 3) + '...';
   },
 
   getEventType: function(summary) {
@@ -96,7 +105,6 @@ Module.register("MMM-MyCalendar", {
   },
 
   getWeatherInfo: function(date) {
-    // Mock weather data - in real implementation, this would come from weather API
     const weatherData = {
       'TODAY': { temp: '33°', low: '26°', icon: '☀️' },
       'TOMORROW': { temp: '32°', low: '23°', icon: '☁️' },
@@ -126,7 +134,7 @@ Module.register("MMM-MyCalendar", {
 
   filterFutureEvents: function(events) {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+    today.setHours(0, 0, 0, 0);
     
     return events.filter(event => {
       const eventDate = new Date(event.start);
@@ -157,9 +165,7 @@ Module.register("MMM-MyCalendar", {
     const eventsContainer = document.createElement("div");
     eventsContainer.className = "events-container";
     
-    // Filter events to show only from today onward
     const futureEvents = this.filterFutureEvents(this.events);
-    
     const sortedEvents = futureEvents
       .sort((a, b) => new Date(a.start) - new Date(b.start))
       .slice(0, this.config.maxEvents);
@@ -252,7 +258,8 @@ Module.register("MMM-MyCalendar", {
     
     const eventTitle = document.createElement("div");
     eventTitle.className = "event-title";
-    eventTitle.textContent = event.summary;
+    eventTitle.textContent = this.truncateText(event.summary, this.config.truncateLength);
+    eventTitle.title = event.summary; // Show full text on hover
     details.appendChild(eventTitle);
     
     content.appendChild(details);

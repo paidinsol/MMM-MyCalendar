@@ -5,65 +5,71 @@
   padding: 0;
   margin: 0;
   width: 100%;
-  max-width: 420px;
+  max-width: 380px;
+  line-height: 1.2;
 }
 
 .MMM-MyCalendar .calendar-header {
   text-align: center;
-  margin-bottom: 15px;
-  padding: 12px 0;
+  margin-bottom: 8px;
+  padding: 8px 0;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 6px;
-  backdrop-filter: blur(10px);
+  border-radius: 4px;
+  backdrop-filter: blur(8px);
 }
 
 .MMM-MyCalendar .calendar-title {
-  font-size: 1.1em;
+  font-size: 1em;
   font-weight: 300;
   color: #ffffff;
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 1px;
 }
 
 .MMM-MyCalendar .events-container {
   background: transparent;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
 .MMM-MyCalendar .date-group {
   background: transparent;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .MMM-MyCalendar .date-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.95em;
+  font-size: 0.8em;
   font-weight: 600;
   color: #ffffff;
-  margin-bottom: 6px;
-  padding: 6px 8px;
+  margin-bottom: 3px;
+  padding: 4px 6px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  backdrop-filter: blur(5px);
+  border-radius: 3px;
+  backdrop-filter: blur(4px);
+  min-height: 20px;
 }
 
 .MMM-MyCalendar .date-text {
   font-weight: 600;
-  font-size: 0.9em;
+  font-size: 0.85em;
 }
 
 .MMM-MyCalendar .weather-info {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.8em;
+  gap: 4px;
+  font-size: 0.75em;
   color: #cccccc;
 }
 
@@ -72,34 +78,35 @@
 }
 
 .MMM-MyCalendar .weather-icon {
-  font-size: 1em;
+  font-size: 0.9em;
 }
 
 .MMM-MyCalendar .event-item {
   display: flex;
   align-items: center;
   background: rgba(0, 0, 0, 0.4);
-  border-radius: 6px;
-  padding: 8px 12px;
-  margin-bottom: 4px;
-  border-left: 3px solid #4fc3f7;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
-  min-height: 40px;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-bottom: 2px;
+  border-left: 2px solid #4fc3f7;
+  transition: all 0.15s ease;
+  backdrop-filter: blur(6px);
+  min-height: 28px;
   box-sizing: border-box;
+  animation: fadeInUp 0.15s ease-out;
 }
 
 .MMM-MyCalendar .event-item:hover {
   background: rgba(0, 0, 0, 0.6);
-  transform: translateX(2px);
+  transform: translateX(1px);
 }
 
 .MMM-MyCalendar .event-indicator {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: #4fc3f7;
-  margin-right: 10px;
+  margin-right: 8px;
   flex-shrink: 0;
 }
 
@@ -108,41 +115,45 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 24px;
+  min-height: 16px;
 }
 
 .MMM-MyCalendar .event-details {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .MMM-MyCalendar .event-time {
-  font-size: 0.8em;
+  font-size: 0.75em;
   color: #ffffff;
   font-weight: 500;
-  min-width: 45px;
+  min-width: 38px;
   text-align: left;
+  flex-shrink: 0;
 }
 
 .MMM-MyCalendar .event-title {
-  font-size: 0.85em;
+  font-size: 0.8em;
   font-weight: 400;
   color: #cccccc;
-  line-height: 1.2;
+  line-height: 1.1;
   margin: 0;
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .MMM-MyCalendar .event-status {
-  font-size: 0.7em;
-  padding: 2px 6px;
-  border-radius: 10px;
+  font-size: 0.65em;
+  padding: 1px 4px;
+  border-radius: 8px;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-  margin-left: 8px;
+  letter-spacing: 0.2px;
+  margin-left: 6px;
   flex-shrink: 0;
 }
 
@@ -221,18 +232,18 @@
   text-align: center;
   color: #90a4ae;
   font-style: italic;
-  padding: 20px 15px;
-  font-size: 0.95em;
+  padding: 15px 10px;
+  font-size: 0.85em;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 6px;
-  backdrop-filter: blur(10px);
+  border-radius: 4px;
+  backdrop-filter: blur(8px);
 }
 
 .MMM-MyCalendar .no-events::before {
   content: '📅';
   display: block;
-  font-size: 1.5em;
-  margin-bottom: 8px;
+  font-size: 1.2em;
+  margin-bottom: 6px;
 }
 
 /* Responsive design */
@@ -244,17 +255,45 @@
   .MMM-MyCalendar .date-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
+    gap: 2px;
+    padding: 3px 5px;
   }
   
   .MMM-MyCalendar .event-details {
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
+    gap: 1px;
   }
   
   .MMM-MyCalendar .event-time {
     min-width: auto;
+    font-size: 0.7em;
+  }
+  
+  .MMM-MyCalendar .event-title {
+    font-size: 0.75em;
+  }
+}
+
+/* Ultra-compact mode for very small screens */
+@media (max-width: 320px) {
+  .MMM-MyCalendar .event-item {
+    padding: 4px 6px;
+    min-height: 24px;
+  }
+  
+  .MMM-MyCalendar .event-time {
+    font-size: 0.65em;
+    min-width: 32px;
+  }
+  
+  .MMM-MyCalendar .event-title {
+    font-size: 0.7em;
+  }
+  
+  .MMM-MyCalendar .event-status {
+    font-size: 0.6em;
+    padding: 1px 3px;
   }
 }
 
@@ -262,7 +301,7 @@
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(5px);
+    transform: translateY(3px);
   }
   to {
     opacity: 1;
@@ -270,6 +309,21 @@
   }
 }
 
-.MMM-MyCalendar .event-item {
-  animation: fadeInUp 0.2s ease-out;
+/* Scrollbar for overflow content */
+.MMM-MyCalendar .events-container::-webkit-scrollbar {
+  width: 3px;
+}
+
+.MMM-MyCalendar .events-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.MMM-MyCalendar .events-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.MMM-MyCalendar .events-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
