@@ -2,7 +2,7 @@ Module.register("MMM-MyCalendar", {
   defaults: {
     updateInterval: 15 * 60 * 1000,
     calendars: [],
-    maximumEntries: 10,
+    maximumEntries: 15,
     maximumNumberOfDays: 365,
     displaySymbol: true,
     defaultSymbol: "calendar",
@@ -17,7 +17,8 @@ Module.register("MMM-MyCalendar", {
     hidePrivate: false,
     hideOngoing: false,
     colored: false,
-    coloredSymbolOnly: false
+    coloredSymbolOnly: false,
+    showPastEvents: false
   },
 
   getStyles: function() {
@@ -65,7 +66,11 @@ Module.register("MMM-MyCalendar", {
 
     let events = this.events.filter(event => {
       const eventDate = new Date(event.start);
-      return eventDate >= today && eventDate <= future;
+      if (event.fullDayEvent) {
+        const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+        return eventDay >= today && eventDay <= future;
+      }
+      return eventDate >= now && eventDate <= future;
     });
 
     events = events.slice(0, this.config.maximumEntries);
@@ -77,7 +82,7 @@ Module.register("MMM-MyCalendar", {
     }
 
     const table = document.createElement("table");
-    table.className = "small";
+    table.className = "large";
 
     events.forEach(event => {
       const eventWrapper = document.createElement("tr");
@@ -88,6 +93,7 @@ Module.register("MMM-MyCalendar", {
       }
 
       const symbolWrapper = document.createElement("td");
+      symbolWrapper.className = "symbol";
       if (this.config.displaySymbol) {
         const symbol = document.createElement("span");
         symbol.className = "fa fa-" + (event.symbol || this.config.defaultSymbol);
@@ -116,52 +122,46 @@ Module.register("MMM-MyCalendar", {
   },
 
   titleTransform: function (title, event) {
-    const now = moment();
-    const eventTime = moment(event.start);
+    const now = new Date();
+    const eventTime = new Date(event.start);
     
     if (event.fullDayEvent) {
-      if (eventTime.isSame(now, "day")) {
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const eventDay = new Date(eventTime.getFullYear(), eventTime.getMonth(), eventTime.getDate());
+      
+      if (eventDay.getTime() === today.getTime()) {
         return "Today";
-      } else if (eventTime.isSame(moment().add(1, "day"), "day")) {
+      } else if (eventDay.getTime() === tomorrow.getTime()) {
         return "Tomorrow";
-      } else if (eventTime.isSame(now, "week")) {
-        return eventTime.format("dddd");
       } else {
-        return eventTime.format(this.config.fullDayEventDateFormat);
+        const options = { weekday: 'long', month: 'short', day: 'numeric' };
+        return eventTime.toLocaleDateString('en-US', options);
       }
     }
 
-    if (this.config.timeFormat === "relative") {
-      return eventTime.fromNow();
+    const diffMs = eventTime - now;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffHours < 1) {
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      if (diffMinutes < 1) {
+        return "Now";
+      }
+      return `in ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+    } else if (diffHours < 24) {
+      return `in ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+    } else if (diffDays < 7) {
+      return `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
     } else {
-      return eventTime.format(this.config.timeFormat);
+      const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      return eventTime.toLocaleDateString('en-US', options);
     }
   },
 
   capFirst: function (string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
-  },
-
-  isFullDayEvent: function(event) {
-    if (event.start.length === 8 || event.start.indexOf("T") === -1) {
-      return true;
-    }
-
-    const start = moment(event.start);
-    const end = moment(event.end);
-
-    if (end.diff(start, "hours") < 8 && end.diff(start, "days") < 1) {
-      return false;
-    }
-
-    if (start.hours() !== 0 || start.minutes() !== 0 || start.seconds() !== 0) {
-      return false;
-    }
-
-    if (end.hours() !== 0 || end.minutes() !== 0 || end.seconds() !== 0) {
-      return false;
-    }
-
-    return true;
   }
 });
