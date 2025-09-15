@@ -3,14 +3,8 @@ Module.register("MMM-MyCalendar", {
     updateInterval: 15 * 60 * 1000,
     calendars: [],
     maxEvents: 50,
-    showWeather: false,
     groupByDate: true,
-    showPastEvents: false,
-    compactMode: false,
-    truncateLength: 50,
-    showWholeWeek: true,
-    startDayIndex: -1, // Start from yesterday
-    endDayIndex: 7     // Show 7 days ahead
+    truncateLength: 50
   },
 
   getStyles: function() {
@@ -71,13 +65,6 @@ Module.register("MMM-MyCalendar", {
     });
   },
 
-  truncateText: function(text, maxLength) {
-    if (!this.config.compactMode || text.length <= maxLength) {
-      return text;
-    }
-    return text.substring(0, maxLength - 3) + '...';
-  },
-
   getEventType: function(summary) {
     const title = summary.toLowerCase();
     if (title.includes('meeting') || title.includes('call') || title.includes('business')) return 'meeting';
@@ -106,11 +93,6 @@ Module.register("MMM-MyCalendar", {
       return 'evening';
     }
     
-    const title = event.summary.toLowerCase();
-    if (title.includes('overday') || title.includes('all day')) {
-      return 'overday';
-    }
-    
     return null;
   },
 
@@ -119,7 +101,7 @@ Module.register("MMM-MyCalendar", {
     const start = new Date(event.start);
     const end = new Date(event.end);
     const duration = end - start;
-    return duration >= 24 * 60 * 60 * 1000; // 24 hours or more
+    return duration >= 24 * 60 * 60 * 1000;
   },
 
   groupEventsByDate: function(events) {
@@ -145,23 +127,6 @@ Module.register("MMM-MyCalendar", {
     return grouped;
   },
 
-  filterEventsByDateRange: function(events) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() + this.config.startDayIndex);
-    
-    const endDate = new Date(today);
-    endDate.setDate(today.getDate() + this.config.endDayIndex);
-    
-    return events.filter(event => {
-      const eventDate = new Date(event.start);
-      eventDate.setHours(0, 0, 0, 0);
-      return eventDate >= startDate && eventDate <= endDate;
-    });
-  },
-
   getDom: function () {
     const wrapper = document.createElement("div");
     wrapper.className = "CX3A MMM-MyCalendar";
@@ -171,25 +136,22 @@ Module.register("MMM-MyCalendar", {
     if (!this.events || this.events.length === 0) {
       const noEvents = document.createElement("div");
       noEvents.className = "noEvents";
-      noEvents.textContent = "No upcoming events";
+      noEvents.innerHTML = `
+        <div>No events found</div>
+        <div style='font-size: 0.8em; margin-top: 10px; opacity: 0.7;'>
+          Check browser console (F12) for error messages
+        </div>
+      `;
       wrapper.appendChild(noEvents);
       return wrapper;
     }
 
-    const filteredEvents = this.filterEventsByDateRange(this.events);
-    Log.info("Filtered to", filteredEvents.length, "events in date range");
-    
-    const sortedEvents = filteredEvents
+    // Show ALL events without filtering for now
+    const sortedEvents = this.events
       .sort((a, b) => new Date(a.start) - new Date(b.start))
       .slice(0, this.config.maxEvents);
     
-    if (sortedEvents.length === 0) {
-      const noEvents = document.createElement("div");
-      noEvents.className = "noEvents";
-      noEvents.textContent = "No events in the selected date range";
-      wrapper.appendChild(noEvents);
-      return wrapper;
-    }
+    Log.info("Displaying", sortedEvents.length, "events");
     
     if (this.config.groupByDate) {
       const groupedEvents = this.groupEventsByDate(sortedEvents);
@@ -247,11 +209,6 @@ Module.register("MMM-MyCalendar", {
           dateGroup.appendChild(cellBody);
           wrapper.appendChild(dateGroup);
         });
-    } else {
-      sortedEvents.forEach(event => {
-        const eventItem = this.createEventElement(event);
-        wrapper.appendChild(eventItem);
-      });
     }
     
     return wrapper;
@@ -273,7 +230,7 @@ Module.register("MMM-MyCalendar", {
     
     const eventTitle = document.createElement("div");
     eventTitle.className = "title";
-    eventTitle.textContent = this.truncateText(event.summary, this.config.truncateLength);
+    eventTitle.textContent = event.summary;
     eventTitle.title = event.summary;
     headline.appendChild(eventTitle);
     
