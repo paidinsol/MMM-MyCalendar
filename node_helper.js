@@ -10,11 +10,10 @@ module.exports = NodeHelper.create({
       
       let events = [];
       
-      // If no calendars configured, send test events
+      // Only use test events if explicitly no calendars are provided
       if (!payload || payload.length === 0) {
-        console.log("No calendars configured, sending test events");
-        events = this.getTestEvents();
-        this.sendSocketNotification("EVENTS_RESULT", events);
+        console.log("No calendars configured in config.js");
+        this.sendSocketNotification("EVENTS_RESULT", []);
         return;
       }
       
@@ -24,15 +23,21 @@ module.exports = NodeHelper.create({
           const response = await fetch(cal.url);
           
           if (!response.ok) {
-            console.error(`HTTP error! status: ${response.status}`);
+            console.error(`HTTP error! status: ${response.status} for ${cal.url}`);
             continue;
           }
           
           const data = await response.text();
-          console.log(`Received data length: ${data.length}`);
+          console.log(`Received data length: ${data.length} from ${cal.url}`);
+          
+          if (data.length === 0) {
+            console.warn(`Empty response from ${cal.url}`);
+            continue;
+          }
           
           const parsed = ical.parseICS(data);
-          console.log(`Parsed events count: ${Object.keys(parsed).length}`);
+          const eventKeys = Object.keys(parsed).filter(k => parsed[k].type === 'VEVENT');
+          console.log(`Found ${eventKeys.length} events in ${cal.url}`);
           
           for (let k in parsed) {
             const ev = parsed[k];
@@ -48,59 +53,20 @@ module.exports = NodeHelper.create({
                 fullDayEvent: this.isFullDayEvent(ev)
               };
               events.push(event);
+              console.log(`Added event: ${event.summary} at ${event.start}`);
             }
           }
         } catch (err) {
           console.error(`Error fetching calendar ${cal.url}:`, err.message);
+          console.error("Full error:", err);
         }
       }
       
-      console.log(`Total events fetched: ${events.length}`);
+      console.log(`Total events fetched from all calendars: ${events.length}`);
       
-      // If no events were fetched, send test events
-      if (events.length === 0) {
-        console.log("No events fetched, sending test events");
-        events = this.getTestEvents();
-      }
-      
+      // Send the actual events (even if empty)
       this.sendSocketNotification("EVENTS_RESULT", events);
     }
-  },
-
-  getTestEvents: function() {
-    const now = new Date();
-    return [
-      {
-        summary: "Test Meeting",
-        start: new Date(now.getTime() + 2 * 60 * 60 * 1000), // 2 hours from now
-        end: new Date(now.getTime() + 3 * 60 * 60 * 1000),
-        description: "This is a test event",
-        location: "Test Location",
-        color: "#4fc3f7",
-        symbol: "calendar",
-        fullDayEvent: false
-      },
-      {
-        summary: "Tomorrow's Appointment",
-        start: new Date(now.getTime() + 24 * 60 * 60 * 1000), // Tomorrow
-        end: new Date(now.getTime() + 25 * 60 * 60 * 1000),
-        description: "Another test event",
-        location: "Another Location",
-        color: "#ff7043",
-        symbol: "calendar",
-        fullDayEvent: false
-      },
-      {
-        summary: "Weekend Project",
-        start: new Date(now.getTime() + 48 * 60 * 60 * 1000), // Day after tomorrow
-        end: new Date(now.getTime() + 49 * 60 * 60 * 1000),
-        description: "Weekend work",
-        location: "Home",
-        color: "#66bb6a",
-        symbol: "briefcase",
-        fullDayEvent: false
-      }
-    ];
   },
 
   isFullDayEvent: function(event) {
