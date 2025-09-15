@@ -4,19 +4,21 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 
 module.exports = NodeHelper.create({
   socketNotificationReceived: async function (notification, payload) {
+    if (notification === "INIT") {
+      console.log("MMM-MyCalendar initialized with config:", payload);
+      return;
+    }
+    
     if (notification === "FETCH_EVENTS") {
       let events = [];
-      const calendars = payload; // Direct array of calendars
-      
-      console.log("Fetching events from", calendars.length, "calendars");
+      const calendars = payload.calendars || payload; // Support both old and new structure
+      const instanceId = payload.instanceId || "default";
       
       for (const cal of calendars) {
         try {
-          console.log("Fetching calendar:", cal.url);
           const response = await fetch(cal.url);
           const data = await response.text();
           const parsed = ical.parseICS(data);
-          
           for (let k in parsed) {
             const ev = parsed[k];
             if (ev.type === "VEVENT") {
@@ -37,8 +39,11 @@ module.exports = NodeHelper.create({
         }
       }
       
-      console.log("Total events fetched:", events.length);
-      this.sendSocketNotification("EVENTS_RESULT", events);
+      console.log(`Fetched ${events.length} events for instance ${instanceId}`);
+      this.sendSocketNotification("EVENTS_RESULT", {
+        events: events,
+        instanceId: instanceId
+      });
     }
   }
 });
