@@ -60,23 +60,37 @@ Module.register("MMM-MyCalendar", {
     }
 
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    
     const future = new Date();
     future.setDate(future.getDate() + this.config.maximumNumberOfDays);
 
     // Filter events to show only from today onwards
     let events = this.events.filter(event => {
       const eventDate = new Date(event.start);
-      // For full day events, include if the event date is today or later
-      if (event.fullDayEvent) {
-        const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
-        return eventDay >= today && eventDay <= future;
-      }
-      // For timed events, include if the event time is now or later
-      return eventDate >= now && eventDate <= future;
+      
+      // For debugging
+      console.log("Event:", event.summary, "Date:", eventDate, "Today:", today);
+      
+      // Always include events that start today or later
+      const eventDay = new Date(eventDate);
+      eventDay.setHours(0, 0, 0, 0);
+      
+      return eventDay >= today;
     });
 
+    // Sort events by date and time
+    events.sort((a, b) => {
+      const dateA = new Date(a.start);
+      const dateB = new Date(b.start);
+      return dateA - dateB;
+    });
+
+    // Limit to maximum entries
     events = events.slice(0, this.config.maximumEntries);
+
+    console.log("Filtered and sorted events:", events.length);
 
     if (events.length === 0) {
       wrapper.innerHTML = "No upcoming events.";
@@ -127,11 +141,14 @@ Module.register("MMM-MyCalendar", {
     const now = new Date();
     const eventTime = new Date(event.start);
     
-    if (event.fullDayEvent) {
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Check if it's a full day event
+    if (event.fullDayEvent || this.isFullDayEvent(event)) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const eventDay = new Date(eventTime.getFullYear(), eventTime.getMonth(), eventTime.getDate());
+      const eventDay = new Date(eventTime);
+      eventDay.setHours(0, 0, 0, 0);
       
       if (eventDay.getTime() === today.getTime()) {
         return "Today";
@@ -145,11 +162,11 @@ Module.register("MMM-MyCalendar", {
 
     // For timed events, show relative time
     const diffMs = eventTime - now;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
     
-    if (diffHours < 1) {
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    if (diffMinutes < 60) {
       if (diffMinutes < 1) {
         return "Now";
       }
@@ -162,6 +179,14 @@ Module.register("MMM-MyCalendar", {
       const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
       return eventTime.toLocaleDateString('en-US', options);
     }
+  },
+
+  isFullDayEvent: function(event) {
+    if (!event.end) return false;
+    const start = new Date(event.start);
+    const end = new Date(event.end);
+    const duration = end - start;
+    return duration >= 24 * 60 * 60 * 1000;
   },
 
   capFirst: function (string) {
