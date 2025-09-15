@@ -3,7 +3,7 @@ Module.register("MMM-MyCalendar", {
     updateInterval: 15 * 60 * 1000,
     calendars: [],
     maximumEntries: 15,
-    maximumNumberOfDays: 365,
+    maximumNumberOfDays: 7, // Only show 7 days
     displaySymbol: true,
     defaultSymbol: "calendar",
     showLocation: false,
@@ -28,6 +28,7 @@ Module.register("MMM-MyCalendar", {
   start: function () {
     Log.info("Starting module: " + this.name);
     this.events = [];
+    this.loaded = false;
     this.getData();
     this.scheduleUpdate();
   },
@@ -39,12 +40,15 @@ Module.register("MMM-MyCalendar", {
   },
 
   getData: function () {
+    Log.info("MMM-MyCalendar: Requesting calendar data");
     this.sendSocketNotification("FETCH_EVENTS", this.config.calendars);
   },
 
   socketNotificationReceived: function (notification, payload) {
     if (notification === "EVENTS_RESULT") {
+      Log.info("MMM-MyCalendar: Received", payload.length, "events");
       this.events = payload;
+      this.loaded = true;
       this.updateDom();
     }
   },
@@ -53,34 +57,41 @@ Module.register("MMM-MyCalendar", {
     const wrapper = document.createElement("div");
     wrapper.className = "calendar";
 
+    if (!this.loaded) {
+      wrapper.innerHTML = "Loading calendar...";
+      wrapper.className = "calendar dimmed";
+      return wrapper;
+    }
+
     if (!this.events || this.events.length === 0) {
-      wrapper.innerHTML = "Loading...";
+      wrapper.innerHTML = "No events available.";
       wrapper.className = "calendar dimmed";
       return wrapper;
     }
 
     const now = new Date();
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+    today.setHours(0, 0, 0, 0);
     
-    const future = new Date();
-    future.setDate(future.getDate() + this.config.maximumNumberOfDays);
+    const weekEnd = new Date(today);
+    weekEnd.setDate(today.getDate() + 7); // Exactly 7 days from today
 
-    // Filter events to show only from today onwards
+    // Filter events: only show events from now until 7 days from today
     let events = this.events.filter(event => {
       const eventDate = new Date(event.start);
       
-      // For debugging
-      console.log("Event:", event.summary, "Date:", eventDate, "Today:", today);
+      // For timed events, must be in the future
+      if (!event.fullDayEvent && !this.isFullDayEvent(event)) {
+        return eventDate >= now && eventDate < weekEnd;
+      }
       
-      // Always include events that start today or later
+      // For full day events, include if the date is today or within the week
       const eventDay = new Date(eventDate);
       eventDay.setHours(0, 0, 0, 0);
-      
-      return eventDay >= today;
+      return eventDay >= today && eventDay < weekEnd;
     });
 
-    // Sort events by date and time
+    // Sort events chronologically
     events.sort((a, b) => {
       const dateA = new Date(a.start);
       const dateB = new Date(b.start);
@@ -90,10 +101,13 @@ Module.register("MMM-MyCalendar", {
     // Limit to maximum entries
     events = events.slice(0, this.config.maximumEntries);
 
-    console.log("Filtered and sorted events:", events.length);
+    console.log("Filtered events for this week:", events.map(e => ({
+      title: e.summary,
+      date: new Date(e.start).toISOString()
+    })));
 
     if (events.length === 0) {
-      wrapper.innerHTML = "No upcoming events.";
+      wrapper.innerHTML = "No events this week.";
       wrapper.className = "calendar dimmed";
       return wrapper;
     }
@@ -105,7 +119,7 @@ Module.register("MMM-MyCalendar", {
       const eventWrapper = document.createElement("tr");
       eventWrapper.className = "normal";
 
-      if (this.config.colored) {
+      if (this.config.colored && event.color) {
         eventWrapper.style.cssText = "color:" + event.color;
       }
 
@@ -113,7 +127,7 @@ Module.register("MMM-MyCalendar", {
       if (this.config.displaySymbol) {
         const symbol = document.createElement("span");
         symbol.className = "fa fa-" + (event.symbol || this.config.defaultSymbol);
-        if (this.config.colored && this.config.coloredSymbolOnly) {
+        if (this.config.colored && this.config.coloredSymbolOnly && event.color) {
           symbol.style.cssText = "color:" + event.color;
         }
         symbolWrapper.appendChild(symbol);
@@ -121,7 +135,7 @@ Module.register("MMM-MyCalendar", {
       eventWrapper.appendChild(symbolWrapper);
 
       const titleWrapper = document.createElement("td");
-      titleWrapper.innerHTML = event.summary;
+      titleWrapper.innerHTML = event.summary || "Untitled Event";
       titleWrapper.className = "title bright";
       eventWrapper.appendChild(titleWrapper);
 
@@ -155,7 +169,8 @@ Module.register("MMM-MyCalendar", {
       } else if (eventDay.getTime() === tomorrow.getTime()) {
         return "Tomorrow";
       } else {
-        const options = { weekday: 'long', month: 'short', day: 'numeric' };
+        // Show day of week for this week
+        const options = { weekday: 'long' };
         return eventTime.toLocaleDateString('en-US', options);
       }
     }
@@ -170,13 +185,16 @@ Module.register("MMM-MyCalendar", {
       if (diffMinutes < 1) {
         return "Now";
       }
-      return `in ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+      return `in ${diffMinutes} min`;
     } else if (diffHours < 24) {
       return `in ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
     } else if (diffDays < 7) {
-      return `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+      // Show day of week for events this week
+      const options = { weekday: 'long' };
+      return eventTime.toLocaleDateString('en-US', options);
     } else {
-      const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      // This shouldn't happen since we filter to 7 days
+      const options = { month: 'short', day: 'numeric' };
       return eventTime.toLocaleDateString('en-US', options);
     }
   },
