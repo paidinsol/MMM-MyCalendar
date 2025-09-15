@@ -18,6 +18,7 @@ Module.register("MMM-MyCalendar", {
   },
 
   start: function () {
+    Log.info("Starting MMM-MyCalendar");
     this.events = [];
     this.getData();
     this.scheduleUpdate();
@@ -30,11 +31,13 @@ Module.register("MMM-MyCalendar", {
   },
 
   getData: function () {
+    Log.info("Requesting calendar data");
     this.sendSocketNotification("FETCH_EVENTS", this.config.calendars);
   },
 
   socketNotificationReceived: function (notification, payload) {
     if (notification === "EVENTS_RESULT") {
+      Log.info("Received", payload.length, "events");
       this.events = payload;
       this.updateDom();
     }
@@ -131,12 +134,10 @@ Module.register("MMM-MyCalendar", {
     
     Object.keys(grouped).forEach(date => {
       grouped[date].sort((a, b) => {
-        // Full day events first
         const aFullDay = this.isFullDayEvent(a);
         const bFullDay = this.isFullDayEvent(b);
         if (aFullDay && !bFullDay) return -1;
         if (!aFullDay && bFullDay) return 1;
-        // Then by time
         return new Date(a.start) - new Date(b.start);
       });
     });
@@ -165,6 +166,8 @@ Module.register("MMM-MyCalendar", {
     const wrapper = document.createElement("div");
     wrapper.className = "CX3A MMM-MyCalendar";
     
+    Log.info("Creating DOM with", this.events.length, "events");
+    
     if (!this.events || this.events.length === 0) {
       const noEvents = document.createElement("div");
       noEvents.className = "noEvents";
@@ -174,6 +177,8 @@ Module.register("MMM-MyCalendar", {
     }
 
     const filteredEvents = this.filterEventsByDateRange(this.events);
+    Log.info("Filtered to", filteredEvents.length, "events in date range");
+    
     const sortedEvents = filteredEvents
       .sort((a, b) => new Date(a.start) - new Date(b.start))
       .slice(0, this.config.maxEvents);
@@ -212,11 +217,9 @@ Module.register("MMM-MyCalendar", {
           const cellBody = document.createElement("div");
           cellBody.className = "cellBody";
           
-          // Separate full day and timed events
           const fullDayEvents = groupedEvents[dateKey].filter(event => this.isFullDayEvent(event));
           const timedEvents = groupedEvents[dateKey].filter(event => !this.isFullDayEvent(event));
           
-          // Add full day events
           if (fullDayEvents.length > 0) {
             const fullDayContainer = document.createElement("div");
             fullDayContainer.className = "fullday";
@@ -229,7 +232,6 @@ Module.register("MMM-MyCalendar", {
             cellBody.appendChild(fullDayContainer);
           }
           
-          // Add timed events
           if (timedEvents.length > 0) {
             const timedContainer = document.createElement("div");
             timedContainer.className = "timed";
