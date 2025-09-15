@@ -2,7 +2,7 @@ Module.register("MMM-MyCalendar", {
   defaults: {
     updateInterval: 15 * 60 * 1000,
     calendars: [],
-    maximumEntries: 20, // Reduced from 50 to keep it smaller
+    maximumEntries: 50, // Increased to show more events
     maximumNumberOfDays: 7,
     displaySymbol: true,
     defaultSymbol: "calendar",
@@ -19,7 +19,7 @@ Module.register("MMM-MyCalendar", {
     colored: false,
     coloredSymbolOnly: false,
     showPastEvents: false,
-    showDebugInfo: true
+    showDebugInfo: true // Show debug info in the module
   },
 
   getStyles: function() {
@@ -64,27 +64,32 @@ Module.register("MMM-MyCalendar", {
     const wrapper = document.createElement("div");
     wrapper.className = "calendar";
 
-    // Show compact debug info
+    // Show debug info if enabled
     if (this.config.showDebugInfo) {
       const debugInfo = document.createElement("div");
       debugInfo.className = "debug-info";
+      debugInfo.style.cssText = "font-size: 0.7em; color: #666; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;";
       
-      let debugText = `${this.status}`;
+      let debugText = `Status: ${this.status}`;
+      if (this.lastUpdate) {
+        debugText += ` | Last update: ${this.lastUpdate.toLocaleTimeString()}`;
+      }
       if (this.events.length > 0) {
-        debugText += ` | ${this.events.length} events`;
+        debugText += ` | Total events: ${this.events.length}`;
       }
       if (this.errors.length > 0) {
-        debugText += ` | ${this.errors.length} errors`;
+        debugText += ` | Errors: ${this.errors.length}`;
       }
       
       debugInfo.innerHTML = debugText;
       wrapper.appendChild(debugInfo);
       
-      // Show errors if any (compact)
+      // Show errors if any
       if (this.errors.length > 0) {
         const errorDiv = document.createElement("div");
         errorDiv.className = "error-info";
-        errorDiv.innerHTML = this.errors.slice(0, 2).join('<br>'); // Show max 2 errors
+        errorDiv.style.cssText = "font-size: 0.6em; color: #ff6b6b; margin-bottom: 10px;";
+        errorDiv.innerHTML = this.errors.join('<br>');
         wrapper.appendChild(errorDiv);
       }
     }
@@ -99,7 +104,7 @@ Module.register("MMM-MyCalendar", {
 
     if (!this.events || this.events.length === 0) {
       const noEvents = document.createElement("div");
-      noEvents.innerHTML = "No events";
+      noEvents.innerHTML = "No events available";
       noEvents.className = "calendar dimmed";
       wrapper.appendChild(noEvents);
       return wrapper;
@@ -109,21 +114,27 @@ Module.register("MMM-MyCalendar", {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Back to 1 week for smaller display
+    // Extend the week range to be more inclusive
     const weekEnd = new Date(today);
-    weekEnd.setDate(today.getDate() + 7); // Back to 1 week
+    weekEnd.setDate(today.getDate() + 14); // Show 2 weeks instead of 1
     weekEnd.setHours(23, 59, 59, 999);
 
-    // Filter events for the week
+    // More inclusive filtering - show more events
     let events = this.events.filter(event => {
       const eventDate = new Date(event.start);
       
+      // For full day events, be more inclusive
       if (event.fullDayEvent || this.isFullDayEvent(event)) {
         const eventDay = new Date(eventDate);
         eventDay.setHours(0, 0, 0, 0);
-        return eventDay >= today && eventDay <= weekEnd;
+        // Include events from yesterday to 2 weeks ahead
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        return eventDay >= yesterday && eventDay <= weekEnd;
       } else {
-        return eventDate >= now && eventDate <= weekEnd;
+        // For timed events, include from 6 hours ago to 2 weeks ahead
+        const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        return eventDate >= sixHoursAgo && eventDate <= weekEnd;
       }
     });
 
@@ -134,11 +145,21 @@ Module.register("MMM-MyCalendar", {
       return dateA - dateB;
     });
 
+    // Show more events
     events = events.slice(0, this.config.maximumEntries);
+
+    // Add debug info about filtering
+    if (this.config.showDebugInfo && this.events.length > 0) {
+      const filterDebug = document.createElement("div");
+      filterDebug.className = "filter-debug";
+      filterDebug.style.cssText = "font-size: 0.6em; color: #888; margin-bottom: 8px;";
+      filterDebug.innerHTML = `Showing ${events.length} of ${this.events.length} total events`;
+      wrapper.appendChild(filterDebug);
+    }
 
     if (events.length === 0) {
       const noWeekEvents = document.createElement("div");
-      noWeekEvents.innerHTML = "No events this week";
+      noWeekEvents.innerHTML = `No events in date range (${this.events.length} total events found)`;
       noWeekEvents.className = "calendar dimmed";
       wrapper.appendChild(noWeekEvents);
       return wrapper;
@@ -201,25 +222,39 @@ Module.register("MMM-MyCalendar", {
         return "Today";
       } else if (eventDay.getTime() === tomorrow.getTime()) {
         return "Tomorrow";
+      } else if (eventDay.getTime() === yesterday.getTime()) {
+        return "Yesterday";
       } else {
-        const options = { weekday: 'short' }; // Shorter day names
+        const options = { weekday: 'long', month: 'short', day: 'numeric' };
         return eventTime.toLocaleDateString('en-US', options);
       }
     }
 
     const diffMs = eventTime - now;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
     
-    if (diffHours < 1) {
+    if (diffMs < 0) {
+      // Past events
+      const pastHours = Math.abs(diffHours);
+      if (pastHours < 24) {
+        return `${pastHours} hours ago`;
+      } else {
+        return "Yesterday";
+      }
+    } else if (diffHours < 1) {
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
       if (diffMinutes < 1) {
         return "Now";
       }
-      return `${diffMinutes}m`; // Shorter format
+      return `in ${diffMinutes} min`;
     } else if (diffHours < 24) {
-      return `${diffHours}h`; // Shorter format
+      return `in ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+    } else if (diffDays < 7) {
+      const options = { weekday: 'long' };
+      return eventTime.toLocaleDateString('en-US', options);
     } else {
-      const options = { weekday: 'short' }; // Shorter day names
+      const options = { month: 'short', day: 'numeric' };
       return eventTime.toLocaleDateString('en-US', options);
     }
   },
