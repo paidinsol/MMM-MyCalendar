@@ -2,7 +2,7 @@ Module.register("MMM-MyCalendar", {
   defaults: {
     updateInterval: 15 * 60 * 1000,
     calendars: [],
-    maximumEntries: 25, // Increased to show more events for the week
+    maximumEntries: 25,
     maximumNumberOfDays: 7,
     displaySymbol: true,
     defaultSymbol: "calendar",
@@ -18,7 +18,8 @@ Module.register("MMM-MyCalendar", {
     hideOngoing: false,
     colored: false,
     coloredSymbolOnly: false,
-    showPastEvents: false
+    showPastEvents: false,
+    showDebugInfo: true // Show debug info in the module
   },
 
   getStyles: function() {
@@ -29,6 +30,9 @@ Module.register("MMM-MyCalendar", {
     Log.info("Starting module: " + this.name);
     this.events = [];
     this.loaded = false;
+    this.status = "Initializing...";
+    this.errors = [];
+    this.lastUpdate = null;
     this.getData();
     this.scheduleUpdate();
   },
@@ -40,15 +44,18 @@ Module.register("MMM-MyCalendar", {
   },
 
   getData: function () {
-    Log.info("MMM-MyCalendar: Requesting calendar data");
+    this.status = "Fetching calendars...";
+    this.updateDom();
     this.sendSocketNotification("FETCH_EVENTS", this.config.calendars);
   },
 
   socketNotificationReceived: function (notification, payload) {
     if (notification === "EVENTS_RESULT") {
-      Log.info("MMM-MyCalendar: Received", payload.length, "events");
-      this.events = payload;
+      this.events = payload.events || [];
+      this.status = payload.status || "Unknown status";
+      this.errors = payload.errors || [];
       this.loaded = true;
+      this.lastUpdate = new Date();
       this.updateDom();
     }
   },
@@ -57,15 +64,46 @@ Module.register("MMM-MyCalendar", {
     const wrapper = document.createElement("div");
     wrapper.className = "calendar";
 
+    // Show debug info if enabled
+    if (this.config.showDebugInfo) {
+      const debugInfo = document.createElement("div");
+      debugInfo.className = "debug-info";
+      debugInfo.style.cssText = "font-size: 0.7em; color: #666; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;";
+      
+      let debugText = `Status: ${this.status}`;
+      if (this.lastUpdate) {
+        debugText += ` | Last update: ${this.lastUpdate.toLocaleTimeString()}`;
+      }
+      if (this.errors.length > 0) {
+        debugText += ` | Errors: ${this.errors.length}`;
+      }
+      
+      debugInfo.innerHTML = debugText;
+      wrapper.appendChild(debugInfo);
+      
+      // Show errors if any
+      if (this.errors.length > 0) {
+        const errorDiv = document.createElement("div");
+        errorDiv.className = "error-info";
+        errorDiv.style.cssText = "font-size: 0.6em; color: #ff6b6b; margin-bottom: 10px;";
+        errorDiv.innerHTML = this.errors.join('<br>');
+        wrapper.appendChild(errorDiv);
+      }
+    }
+
     if (!this.loaded) {
-      wrapper.innerHTML = "Loading calendar...";
-      wrapper.className = "calendar dimmed";
+      const loading = document.createElement("div");
+      loading.innerHTML = this.status;
+      loading.className = "calendar dimmed";
+      wrapper.appendChild(loading);
       return wrapper;
     }
 
     if (!this.events || this.events.length === 0) {
-      wrapper.innerHTML = "No events available.";
-      wrapper.className = "calendar dimmed";
+      const noEvents = document.createElement("div");
+      noEvents.innerHTML = "No events available";
+      noEvents.className = "calendar dimmed";
+      wrapper.appendChild(noEvents);
       return wrapper;
     }
 
@@ -75,20 +113,17 @@ Module.register("MMM-MyCalendar", {
     
     const weekEnd = new Date(today);
     weekEnd.setDate(today.getDate() + 7);
-    weekEnd.setHours(23, 59, 59, 999); // End of the 7th day
+    weekEnd.setHours(23, 59, 59, 999);
 
-    // Filter events: show events from now until end of the week (7 days)
+    // Filter events for the week
     let events = this.events.filter(event => {
       const eventDate = new Date(event.start);
       
-      // For all events, check if they fall within the week range
       if (event.fullDayEvent || this.isFullDayEvent(event)) {
-        // For full day events, include if the date is today or within the week
         const eventDay = new Date(eventDate);
         eventDay.setHours(0, 0, 0, 0);
         return eventDay >= today && eventDay <= weekEnd;
       } else {
-        // For timed events, include if they're in the future within the week
         return eventDate >= now && eventDate <= weekEnd;
       }
     });
@@ -100,18 +135,13 @@ Module.register("MMM-MyCalendar", {
       return dateA - dateB;
     });
 
-    // Limit to maximum entries
     events = events.slice(0, this.config.maximumEntries);
 
-    console.log("Week events:", events.map(e => ({
-      title: e.summary,
-      date: new Date(e.start).toLocaleDateString(),
-      time: new Date(e.start).toLocaleTimeString()
-    })));
-
     if (events.length === 0) {
-      wrapper.innerHTML = "No events this week.";
-      wrapper.className = "calendar dimmed";
+      const noWeekEvents = document.createElement("div");
+      noWeekEvents.innerHTML = `No events this week (${this.events.length} total events found)`;
+      noWeekEvents.className = "calendar dimmed";
+      wrapper.appendChild(noWeekEvents);
       return wrapper;
     }
 
@@ -158,7 +188,6 @@ Module.register("MMM-MyCalendar", {
     const now = new Date();
     const eventTime = new Date(event.start);
     
-    // Check if it's a full day event
     if (event.fullDayEvent || this.isFullDayEvent(event)) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -172,16 +201,13 @@ Module.register("MMM-MyCalendar", {
       } else if (eventDay.getTime() === tomorrow.getTime()) {
         return "Tomorrow";
       } else {
-        // Show day of week for this week
         const options = { weekday: 'long' };
         return eventTime.toLocaleDateString('en-US', options);
       }
     }
 
-    // For timed events, show relative time or day
     const diffMs = eventTime - now;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffHours / 24);
     
     if (diffHours < 1) {
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
@@ -192,7 +218,6 @@ Module.register("MMM-MyCalendar", {
     } else if (diffHours < 24) {
       return `in ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
     } else {
-      // For events more than 24 hours away, show the day of the week
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
