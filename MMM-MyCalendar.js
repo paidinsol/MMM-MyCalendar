@@ -250,6 +250,7 @@ Module.register("MMM-MyCalendar", {
     const headline = document.createElement("div");
     headline.className = "headline";
     
+    // Add time for timed events
     if (!isFullDay) {
       const eventTime = document.createElement("div");
       eventTime.className = "time";
@@ -257,20 +258,36 @@ Module.register("MMM-MyCalendar", {
       headline.appendChild(eventTime);
     }
     
+    // Add event title - this is the main content!
     const eventTitle = document.createElement("div");
     eventTitle.className = "title";
-    eventTitle.textContent = event.summary;
-    eventTitle.title = event.summary;
-    headline.appendChild(eventTitle);
     
+    // Make sure we have a title to display
+    const titleText = event.summary || event.title || "Untitled Event";
+    eventTitle.textContent = titleText;
+    eventTitle.title = titleText; // Tooltip for full text
+    
+    // Debug logging to see what we're getting
+    Log.info("Event title:", titleText, "Full event:", event);
+    
+    headline.appendChild(eventTitle);
     eventItem.appendChild(headline);
     
+    // Add status badge for timed events
     const status = this.getEventStatus(event);
     if (status && !isFullDay) {
       const statusSpan = document.createElement("span");
       statusSpan.className = `status ${status}`;
       statusSpan.textContent = status;
       eventItem.appendChild(statusSpan);
+    }
+    
+    // Add description if available
+    if (event.description && event.description.trim()) {
+      const description = document.createElement("div");
+      description.className = "description";
+      description.textContent = event.description.substring(0, 100) + (event.description.length > 100 ? '...' : '');
+      eventItem.appendChild(description);
     }
     
     return eventItem;
