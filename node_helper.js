@@ -5,45 +5,64 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 module.exports = NodeHelper.create({
   socketNotificationReceived: async function (notification, payload) {
     if (notification === "FETCH_EVENTS") {
-      console.log("MMM-MyCalendar: Received FETCH_EVENTS request");
-      console.log("Calendars to fetch:", payload);
+      console.log("MMM-MyCalendar: Starting calendar fetch");
+      console.log("Calendars configured:", payload?.length || 0);
       
       let events = [];
+      let fetchErrors = [];
       
-      // Only use test events if explicitly no calendars are provided
       if (!payload || payload.length === 0) {
-        console.log("No calendars configured in config.js");
+        console.log("No calendars configured");
         this.sendSocketNotification("EVENTS_RESULT", []);
         return;
       }
       
-      for (const cal of payload) {
+      for (let i = 0; i < payload.length; i++) {
+        const cal = payload[i];
         try {
-          console.log(`Fetching calendar: ${cal.url}`);
-          const response = await fetch(cal.url);
+          console.log(`Fetching calendar ${i + 1}/${payload.length}: ${cal.url}`);
+          
+          // Add timeout to fetch
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+          
+          const response = await fetch(cal.url, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'MagicMirror Calendar Module'
+            }
+          });
+          
+          clearTimeout(timeoutId);
           
           if (!response.ok) {
-            console.error(`HTTP error! status: ${response.status} for ${cal.url}`);
-            continue;
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
           
           const data = await response.text();
-          console.log(`Received data length: ${data.length} from ${cal.url}`);
+          console.log(`Calendar ${i + 1} data length: ${data.length} characters`);
           
           if (data.length === 0) {
-            console.warn(`Empty response from ${cal.url}`);
+            console.warn(`Calendar ${i + 1} returned empty data`);
+            continue;
+          }
+          
+          // Check if data looks like iCal format
+          if (!data.includes('BEGIN:VCALENDAR') && !data.includes('BEGIN:VEVENT')) {
+            console.warn(`Calendar ${i + 1} doesn't appear to be valid iCal format`);
+            console.log(`First 200 chars: ${data.substring(0, 200)}`);
             continue;
           }
           
           const parsed = ical.parseICS(data);
           const eventKeys = Object.keys(parsed).filter(k => parsed[k].type === 'VEVENT');
-          console.log(`Found ${eventKeys.length} events in ${cal.url}`);
+          console.log(`Calendar ${i + 1} parsed ${eventKeys.length} events`);
           
           for (let k in parsed) {
             const ev = parsed[k];
-            if (ev.type === "VEVENT") {
+            if (ev.type === "VEVENT" && ev.summary && ev.start) {
               const event = {
-                summary: ev.summary || "Untitled Event",
+                summary: ev.summary,
                 start: ev.start,
                 end: ev.end,
                 description: ev.description || "",
@@ -53,18 +72,29 @@ module.exports = NodeHelper.create({
                 fullDayEvent: this.isFullDayEvent(ev)
               };
               events.push(event);
-              console.log(`Added event: ${event.summary} at ${event.start}`);
             }
           }
+          
+          console.log(`Calendar ${i + 1} contributed ${eventKeys.length} events`);
+          
         } catch (err) {
-          console.error(`Error fetching calendar ${cal.url}:`, err.message);
-          console.error("Full error:", err);
+          const errorMsg = `Calendar ${i + 1} (${cal.url}): ${err.message}`;
+          console.error(errorMsg);
+          fetchErrors.push(errorMsg);
+          
+          if (err.name === 'AbortError') {
+            console.error(`Calendar ${i + 1} timed out after 10 seconds`);
+          }
         }
       }
       
-      console.log(`Total events fetched from all calendars: ${events.length}`);
+      console.log(`Total events fetched: ${events.length}`);
+      if (fetchErrors.length > 0) {
+        console.log(`Fetch errors: ${fetchErrors.length}`);
+        fetchErrors.forEach(error => console.error(error));
+      }
       
-      // Send the actual events (even if empty)
+      // Send results even if some calendars failed
       this.sendSocketNotification("EVENTS_RESULT", events);
     }
   },
