@@ -2,44 +2,23 @@ Module.register("MMM-MyCalendar", {
   defaults: {
     updateInterval: 15 * 60 * 1000,
     calendars: [],
-    instanceId: "basicCalendar",
-    locale: null,
-    startDayIndex: 0,
-    endDayIndex: 10,
-    calendarSet: [],
-    firstDayOfWeek: 1,
-    minimalDaysOfNewYear: 4,
-    cellDateOptions: { month: 'short', day: 'numeric' },
-    eventTimeOptions: { timeStyle: 'short' },
-    fontSize: '14px',
-    eventHeight: '20px',
-    maxEventLines: 5,
-    animationSpeed: 1000,
-    waitFetch: 5000,
-    refreshInterval: 600000,
-    useSymbol: true,
-    useIconify: false,
-    weekends: null,
-    eventFilter: null,
-    eventSorter: null,
-    eventTransformer: null,
-    preProcessor: null
+    maxEvents: 50,
+    showWeather: false,
+    groupByDate: true,
+    showPastEvents: false,
+    compactMode: false,
+    truncateLength: 50,
+    showWholeWeek: true,
+    startDayIndex: -1, // Start from yesterday
+    endDayIndex: 7     // Show 7 days ahead
   },
 
   getStyles: function() {
     return ["MMM-MyCalendar.css"];
   },
 
-  getScripts: function() {
-    return [];
-  },
-
   start: function () {
-    Log.info(`Starting module: ${this.name}`);
     this.events = [];
-    this.config.locale = this.config.locale || config.language;
-    this.config.instanceId = this.config.instanceId || this.identifier;
-    this.sendSocketNotification("INIT", this.config);
     this.getData();
     this.scheduleUpdate();
   },
@@ -51,103 +30,85 @@ Module.register("MMM-MyCalendar", {
   },
 
   getData: function () {
-    this.sendSocketNotification("FETCH_EVENTS", {
-      calendars: this.config.calendars,
-      instanceId: this.config.instanceId
-    });
+    this.sendSocketNotification("FETCH_EVENTS", this.config.calendars);
   },
 
   socketNotificationReceived: function (notification, payload) {
-    if (notification === "EVENTS_RESULT" && payload.instanceId === this.config.instanceId) {
-      this.events = this.processEvents(payload.events);
-      this.updateDom(this.config.animationSpeed);
+    if (notification === "EVENTS_RESULT") {
+      this.events = payload;
+      this.updateDom();
     }
   },
 
-  processEvents: function(events) {
-    let processedEvents = events;
-    
-    // Apply pre-processor
-    if (this.config.preProcessor && typeof this.config.preProcessor === 'function') {
-      processedEvents = this.config.preProcessor(processedEvents);
-    }
-    
-    // Filter events by calendar set
-    if (this.config.calendarSet && this.config.calendarSet.length > 0) {
-      processedEvents = processedEvents.filter(event => 
-        this.config.calendarSet.includes(event.calendarName)
-      );
-    }
-    
-    // Apply custom filter
-    if (this.config.eventFilter && typeof this.config.eventFilter === 'function') {
-      processedEvents = processedEvents.filter(this.config.eventFilter);
-    }
-    
-    // Apply custom sorter
-    if (this.config.eventSorter && typeof this.config.eventSorter === 'function') {
-      processedEvents = processedEvents.sort(this.config.eventSorter);
-    } else {
-      // Default sorting by start time
-      processedEvents = processedEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
-    }
-    
-    // Apply custom transformer
-    if (this.config.eventTransformer && typeof this.config.eventTransformer === 'function') {
-      processedEvents = processedEvents.map(this.config.eventTransformer);
-    }
-    
-    return processedEvents;
-  },
-
-  filterEventsByDateRange: function(events) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() + this.config.startDayIndex);
-    
-    const endDate = new Date(today);
-    endDate.setDate(today.getDate() + this.config.endDayIndex);
-    
-    return events.filter(event => {
-      const eventDate = new Date(event.start);
-      return eventDate >= startDate && eventDate <= endDate;
-    });
-  },
-
-  formatDate: function(date, options = null) {
-    const dateOptions = options || this.config.cellDateOptions;
-    const locale = this.config.locale;
-    
+  formatDate: function(date) {
     const today = new Date();
     const eventDate = new Date(date);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
     
     if (eventDate.toDateString() === today.toDateString()) {
       return "TODAY";
     } else if (eventDate.toDateString() === tomorrow.toDateString()) {
       return "TOMORROW";
+    } else if (eventDate.toDateString() === yesterday.toDateString()) {
+      return "YESTERDAY";
     } else {
-      return eventDate.toLocaleDateString(locale, dateOptions).toUpperCase();
+      const options = { weekday: 'long', day: 'numeric', month: 'short' };
+      return eventDate.toLocaleDateString('en-US', options).toUpperCase();
     }
   },
 
-  formatTime: function(date, options = null) {
-    const timeOptions = options || this.config.eventTimeOptions;
-    const locale = this.config.locale;
-    return new Date(date).toLocaleTimeString(locale, timeOptions);
+  formatTime: function(date) {
+    return new Date(date).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
   },
 
-  getEventType: function(event) {
-    const title = event.summary.toLowerCase();
+  truncateText: function(text, maxLength) {
+    if (!this.config.compactMode || text.length <= maxLength) {
+      return text;
+    }
+    return text.substring(0, maxLength - 3) + '...';
+  },
+
+  getEventType: function(summary) {
+    const title = summary.toLowerCase();
     if (title.includes('meeting') || title.includes('call') || title.includes('business')) return 'meeting';
     if (title.includes('appointment') || title.includes('doctor')) return 'appointment';
     if (title.includes('reminder') || title.includes('task')) return 'reminder';
-    if (title.includes('holiday') || title.includes('vacation')) return 'holiday';
+    if (title.includes('holiday') || title.includes('vacation') || title.includes('fullday')) return 'holiday';
     if (title.includes('project') || title.includes('milestone')) return 'project';
     return 'default';
+  },
+
+  getEventStatus: function(event) {
+    const now = new Date();
+    const eventStart = new Date(event.start);
+    const eventEnd = event.end ? new Date(event.end) : null;
+    
+    if (eventEnd && now > eventEnd) {
+      return 'passed';
+    }
+    
+    const hour = eventStart.getHours();
+    if (hour >= 6 && hour < 12) {
+      return 'morning';
+    } else if (hour >= 12 && hour < 17) {
+      return 'noon';
+    } else if (hour >= 17 && hour < 22) {
+      return 'evening';
+    }
+    
+    const title = event.summary.toLowerCase();
+    if (title.includes('overday') || title.includes('all day')) {
+      return 'overday';
+    }
+    
+    return null;
   },
 
   isFullDayEvent: function(event) {
@@ -163,17 +124,13 @@ Module.register("MMM-MyCalendar", {
     events.forEach(event => {
       const dateKey = new Date(event.start).toDateString();
       if (!grouped[dateKey]) {
-        grouped[dateKey] = {
-          date: new Date(event.start),
-          events: []
-        };
+        grouped[dateKey] = [];
       }
-      grouped[dateKey].events.push(event);
+      grouped[dateKey].push(event);
     });
     
-    // Sort events within each date
     Object.keys(grouped).forEach(date => {
-      grouped[date].events.sort((a, b) => {
+      grouped[date].sort((a, b) => {
         // Full day events first
         const aFullDay = this.isFullDayEvent(a);
         const bFullDay = this.isFullDayEvent(b);
@@ -187,131 +144,147 @@ Module.register("MMM-MyCalendar", {
     return grouped;
   },
 
+  filterEventsByDateRange: function(events) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() + this.config.startDayIndex);
+    
+    const endDate = new Date(today);
+    endDate.setDate(today.getDate() + this.config.endDayIndex);
+    
+    return events.filter(event => {
+      const eventDate = new Date(event.start);
+      eventDate.setHours(0, 0, 0, 0);
+      return eventDate >= startDate && eventDate <= endDate;
+    });
+  },
+
   getDom: function () {
     const wrapper = document.createElement("div");
     wrapper.className = "CX3A MMM-MyCalendar";
-    wrapper.style.fontSize = this.config.fontSize;
     
     if (!this.events || this.events.length === 0) {
-      wrapper.innerHTML = `<div class="noEvents">No upcoming events</div>`;
+      const noEvents = document.createElement("div");
+      noEvents.className = "noEvents";
+      noEvents.textContent = "No upcoming events";
+      wrapper.appendChild(noEvents);
       return wrapper;
     }
 
     const filteredEvents = this.filterEventsByDateRange(this.events);
+    const sortedEvents = filteredEvents
+      .sort((a, b) => new Date(a.start) - new Date(b.start))
+      .slice(0, this.config.maxEvents);
     
-    if (filteredEvents.length === 0) {
-      wrapper.innerHTML = `<div class="noEvents">No upcoming events</div>`;
+    if (sortedEvents.length === 0) {
+      const noEvents = document.createElement("div");
+      noEvents.className = "noEvents";
+      noEvents.textContent = "No events in the selected date range";
+      wrapper.appendChild(noEvents);
       return wrapper;
     }
     
-    const groupedEvents = this.groupEventsByDate(filteredEvents);
-    
-    Object.keys(groupedEvents)
-      .sort((a, b) => new Date(a) - new Date(b))
-      .forEach(dateKey => {
-        const dayGroup = groupedEvents[dateKey];
-        const dayCell = this.createDayCell(dayGroup);
-        wrapper.appendChild(dayCell);
+    if (this.config.groupByDate) {
+      const groupedEvents = this.groupEventsByDate(sortedEvents);
+      const today = new Date().toDateString();
+      
+      Object.keys(groupedEvents)
+        .sort((a, b) => new Date(a) - new Date(b))
+        .forEach(dateKey => {
+          const dateGroup = document.createElement("div");
+          dateGroup.className = "cell";
+          if (dateKey === today) {
+            dateGroup.classList.add("today");
+          }
+          
+          const dateHeader = document.createElement("div");
+          dateHeader.className = "cellHeader";
+          
+          const dateText = document.createElement("span");
+          dateText.className = "cellDate";
+          dateText.textContent = this.formatDate(new Date(dateKey));
+          dateHeader.appendChild(dateText);
+          
+          dateGroup.appendChild(dateHeader);
+          
+          const cellBody = document.createElement("div");
+          cellBody.className = "cellBody";
+          
+          // Separate full day and timed events
+          const fullDayEvents = groupedEvents[dateKey].filter(event => this.isFullDayEvent(event));
+          const timedEvents = groupedEvents[dateKey].filter(event => !this.isFullDayEvent(event));
+          
+          // Add full day events
+          if (fullDayEvents.length > 0) {
+            const fullDayContainer = document.createElement("div");
+            fullDayContainer.className = "fullday";
+            
+            fullDayEvents.forEach(event => {
+              const eventElement = this.createEventElement(event, true);
+              fullDayContainer.appendChild(eventElement);
+            });
+            
+            cellBody.appendChild(fullDayContainer);
+          }
+          
+          // Add timed events
+          if (timedEvents.length > 0) {
+            const timedContainer = document.createElement("div");
+            timedContainer.className = "timed";
+            
+            timedEvents.forEach(event => {
+              const eventElement = this.createEventElement(event, false);
+              timedContainer.appendChild(eventElement);
+            });
+            
+            cellBody.appendChild(timedContainer);
+          }
+          
+          dateGroup.appendChild(cellBody);
+          wrapper.appendChild(dateGroup);
+        });
+    } else {
+      sortedEvents.forEach(event => {
+        const eventItem = this.createEventElement(event);
+        wrapper.appendChild(eventItem);
       });
+    }
     
     return wrapper;
   },
   
-  createDayCell: function(dayGroup) {
-    const cell = document.createElement("div");
-    cell.className = "cell";
-    
-    const cellHeader = document.createElement("div");
-    cellHeader.className = "cellHeader";
-    
-    const cellDate = document.createElement("div");
-    cellDate.className = "cellDate";
-    cellDate.textContent = this.formatDate(dayGroup.date);
-    cellHeader.appendChild(cellDate);
-    
-    const today = new Date().toDateString();
-    if (dayGroup.date.toDateString() === today) {
-      cell.classList.add("today");
-    }
-    
-    cell.appendChild(cellHeader);
-    
-    const cellBody = document.createElement("div");
-    cellBody.className = "cellBody";
-    
-    // Separate full day and timed events
-    const fullDayEvents = dayGroup.events.filter(event => this.isFullDayEvent(event));
-    const timedEvents = dayGroup.events.filter(event => !this.isFullDayEvent(event));
-    
-    // Add full day events
-    if (fullDayEvents.length > 0) {
-      const fullDayContainer = document.createElement("div");
-      fullDayContainer.className = "fullday";
-      
-      fullDayEvents.forEach(event => {
-        const eventElement = this.createEventElement(event, true);
-        fullDayContainer.appendChild(eventElement);
-      });
-      
-      cellBody.appendChild(fullDayContainer);
-    }
-    
-    // Add timed events
-    if (timedEvents.length > 0) {
-      const timedContainer = document.createElement("div");
-      timedContainer.className = "timed";
-      
-      timedEvents.forEach(event => {
-        const eventElement = this.createEventElement(event, false);
-        timedContainer.appendChild(eventElement);
-      });
-      
-      cellBody.appendChild(timedContainer);
-    }
-    
-    cell.appendChild(cellBody);
-    return cell;
-  },
-  
   createEventElement: function(event, isFullDay = false) {
-    const eventDiv = document.createElement("div");
-    eventDiv.className = `event ${this.getEventType(event)}`;
-    eventDiv.style.height = this.config.eventHeight;
-    
-    if (event.color) {
-      eventDiv.style.setProperty('--calendarColor', event.color);
-    }
+    const eventItem = document.createElement("div");
+    eventItem.className = `event ${this.getEventType(event.summary)}`;
     
     const headline = document.createElement("div");
     headline.className = "headline";
     
     if (!isFullDay) {
-      const time = document.createElement("div");
-      time.className = "time";
-      time.textContent = this.formatTime(event.start);
-      headline.appendChild(time);
+      const eventTime = document.createElement("div");
+      eventTime.className = "time";
+      eventTime.textContent = this.formatTime(event.start);
+      headline.appendChild(eventTime);
     }
     
-    if (this.config.useSymbol && event.symbol) {
-      const symbol = document.createElement("span");
-      symbol.className = `symbol fa fa-${event.symbol}`;
-      headline.appendChild(symbol);
+    const eventTitle = document.createElement("div");
+    eventTitle.className = "title";
+    eventTitle.textContent = this.truncateText(event.summary, this.config.truncateLength);
+    eventTitle.title = event.summary;
+    headline.appendChild(eventTitle);
+    
+    eventItem.appendChild(headline);
+    
+    const status = this.getEventStatus(event);
+    if (status && !isFullDay) {
+      const statusSpan = document.createElement("span");
+      statusSpan.className = `status ${status}`;
+      statusSpan.textContent = status;
+      eventItem.appendChild(statusSpan);
     }
     
-    const title = document.createElement("div");
-    title.className = "title";
-    title.textContent = event.summary;
-    headline.appendChild(title);
-    
-    eventDiv.appendChild(headline);
-    
-    if (event.description) {
-      const description = document.createElement("div");
-      description.className = "description";
-      description.textContent = event.description;
-      eventDiv.appendChild(description);
-    }
-    
-    return eventDiv;
+    return eventItem;
   }
 });

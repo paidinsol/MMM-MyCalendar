@@ -1,13 +1,14 @@
 .CX3A {
-  --fontSize: 14px;
-  --eventHeight: 20px;
+  --fontSize: 16px;
+  --eventHeight: 28px;
   --calendarColor: #4fc3f7;
-  --backgroundColor: rgba(0, 0, 0, 0.4);
+  --backgroundColor: rgba(40, 40, 40, 0.9);
   --textColor: #ffffff;
-  --dimmedTextColor: #cccccc;
-  --borderColor: rgba(255, 255, 255, 0.1);
+  --dimmedTextColor: #e0e0e0;
+  --borderColor: rgba(255, 255, 255, 0.2);
   --todayColor: #ffc107;
-  --spacing: 8px;
+  --spacing: 12px;
+  --headerBackground: rgba(60, 60, 60, 0.95);
 }
 
 .CX3A {
@@ -17,12 +18,9 @@
   padding: 0;
   margin: 0;
   width: 100%;
-  max-width: 400px;
+  max-width: 600px;
   position: relative;
-  max-height: 500px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  font-size: var(--fontSize);
 }
 
 .CX3A::after {
@@ -31,7 +29,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 20px;
+  height: 30px;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
   pointer-events: none;
 }
@@ -42,64 +40,68 @@
   font-style: italic;
   padding: var(--spacing);
   background: var(--backgroundColor);
-  border-radius: 6px;
-  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  font-size: 1.1em;
 }
 
 .CX3A .cell {
-  margin-bottom: calc(var(--spacing) / 2);
+  margin-bottom: var(--spacing);
   background: transparent;
-  animation: slideInFromTop 0.3s ease-out;
 }
 
 .CX3A .cell.today .cellDate {
   color: var(--todayColor);
-  font-weight: 600;
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
 }
 
 .CX3A .cellHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
-  padding: 4px 6px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  backdrop-filter: blur(4px);
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: var(--headerBackground);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--borderColor);
 }
 
 .CX3A .cellDate {
-  font-size: 0.85em;
-  font-weight: 500;
+  font-size: 1em;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 1px;
+  color: var(--textColor);
 }
 
 .CX3A .cellBody {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .CX3A .cellBody .fullday {
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .CX3A .cellBody .fullday .event {
   background: var(--calendarColor);
   color: #000000;
-  border-radius: 4px;
-  padding: 2px 6px;
-  margin-bottom: 2px;
-  font-weight: 500;
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin-bottom: 4px;
+  font-weight: 600;
   max-width: 100%;
   overflow: hidden;
+  font-size: 0.95em;
 }
 
 .CX3A .cellBody .fullday .event .headline {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .CX3A .cellBody .fullday .event .headline .time {
@@ -108,74 +110,118 @@
 
 .CX3A .cellBody .fullday .event .title {
   flex: 1;
-  font-size: 0.8em;
+  font-size: 0.9em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: #000000;
+  font-weight: 600;
 }
 
 .CX3A .cellBody .timed .event {
   display: flex;
   align-items: center;
   background: var(--backgroundColor);
-  border-radius: 4px;
-  padding: 4px 6px;
-  margin-bottom: 2px;
-  border-left: 2px solid var(--calendarColor);
-  backdrop-filter: blur(6px);
-  transition: all 0.2s ease;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  border-left: 4px solid var(--calendarColor);
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
   min-height: var(--eventHeight);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .CX3A .cellBody .timed .event:hover {
-  background: rgba(0, 0, 0, 0.6);
-  transform: translateX(2px);
+  background: rgba(80, 80, 80, 0.9);
+  transform: translateX(3px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
 .CX3A .event .headline {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex: 1;
 }
 
 .CX3A .event .time {
-  font-size: 0.75em;
+  font-size: 0.85em;
   color: var(--textColor);
-  font-weight: 500;
-  min-width: 40px;
+  font-weight: 600;
+  min-width: 50px;
   text-align: left;
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .CX3A .event .symbol {
-  font-size: 0.8em;
+  font-size: 0.9em;
   color: var(--calendarColor);
   flex-shrink: 0;
 }
 
 .CX3A .event .title {
-  font-size: 0.8em;
-  color: var(--dimmedTextColor);
+  font-size: 0.9em;
+  color: var(--textColor);
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.2;
+  line-height: 1.3;
+  font-weight: 500;
 }
 
 .CX3A .event .description {
-  font-size: 0.7em;
+  font-size: 0.8em;
   color: var(--dimmedTextColor);
-  margin-top: 2px;
-  opacity: 0.8;
-  line-height: 1.1;
-  max-height: 2.2em;
+  margin-top: 4px;
+  opacity: 0.9;
+  line-height: 1.2;
+  max-height: 2.4em;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+.CX3A .status {
+  font-size: 0.75em;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.CX3A .status.morning {
+  background: rgba(255, 193, 7, 0.8);
+  color: #000000;
+}
+
+.CX3A .status.noon {
+  background: rgba(255, 152, 0, 0.8);
+  color: #000000;
+}
+
+.CX3A .status.evening {
+  background: rgba(103, 58, 183, 0.8);
+  color: #ffffff;
+}
+
+.CX3A .status.overday {
+  background: rgba(76, 175, 80, 0.8);
+  color: #000000;
+}
+
+.CX3A .status.passed {
+  background: rgba(158, 158, 158, 0.6);
+  color: #ffffff;
 }
 
 /* Event type specific colors */
@@ -200,27 +246,27 @@
 }
 
 /* Responsive design */
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .CX3A {
     max-width: 100%;
-    font-size: 0.9em;
+    font-size: 0.95em;
   }
   
   .CX3A .cellHeader {
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
+    gap: 4px;
   }
   
   .CX3A .event .headline {
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
+    gap: 4px;
   }
   
   .CX3A .event .time {
     min-width: auto;
-    font-size: 0.7em;
+    font-size: 0.8em;
   }
 }
 
@@ -228,7 +274,7 @@
 @keyframes slideInFromTop {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-15px);
   }
   to {
     opacity: 1;
@@ -236,21 +282,32 @@
   }
 }
 
+.CX3A .cell {
+  animation: slideInFromTop 0.4s ease-out;
+}
+
 /* Scrollbar styling */
+.CX3A {
+  max-height: 600px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
 .CX3A::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 
 .CX3A::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
 }
 
 .CX3A::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
 }
 
 .CX3A::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.5);
 }
