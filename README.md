@@ -6,6 +6,6 @@ Custom MagicMirror² module for displaying events from Google Calendar via iCal.
 
 ```bash
 cd ~/MagicMirror/modules
-git clone https://github.com/YOUR_USERNAME/MMM-MyCalendar
+git clone https://github.com/paidinsol/MMM-MyCalendar
 cd MMM-MyCalendar
 npm install
